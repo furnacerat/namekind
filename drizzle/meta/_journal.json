@@ -1,5 +1,20 @@
 {
   "version": "7",
   "dialect": "sqlite",
-  "entries": []
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1787099671658,
+      "tag": "0000_warm_the_liberteens",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1787099686829,
+      "tag": "0001_workable_krista_starr",
+      "breakpoints": true
+    }
+  ]
 }
