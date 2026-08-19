@@ -73,6 +73,7 @@ export async function POST(request: Request) {
     reactions: body.buckets,
     nicknamePreference: typeof body.nickname === "string" ? body.nickname.slice(0,50) : "No preference",
     surnameProvided: Boolean(body.surname),
+    personalSignals: typeof body.details === "object" && body.details ? body.details : {},
   };
   const allowedNames = candidates.map(candidate => candidate!.name);
   const candidateData = candidates.map(candidate => ({name:candidate!.name,origin:candidate!.origin,meaning:candidate!.meaning,tags:candidate!.tags}));
