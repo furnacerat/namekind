@@ -1,18 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
+import { names, type NameItem } from "./name-data";
 
 type Step = "welcome" | "together" | "questions" | "profile" | "results";
 type AnswerMap = Record<string, string[]>;
-type NameItem = {
-  name: string;
-  pronunciation: string;
-  origin: string;
-  meaning: string;
-  nicknames: string[];
-  why: string;
-  tags: string[];
-};
 
 const questions = [
   { id: "direction", eyebrow: "Let’s begin", title: "What kinds of names should we explore?", helper: "Choose the direction that feels right today.", max: 1, options: ["Girl names", "Boy names", "Gender-neutral names", "Show me everything", "We’re not sure yet"] },
@@ -25,20 +17,35 @@ const questions = [
   { id: "popularity", eyebrow: "One last thought", title: "How do you feel about popular names?", helper: "A gentle final filter before we find your names.", max: 1, options: ["We love familiar favorites", "Recognizable, not too common", "Something uncommon", "The rarer, the better", "Popularity doesn’t matter"] },
 ];
 
-const names: NameItem[] = [
-  { name: "Elodie", pronunciation: "EL-oh-dee", origin: "French", meaning: "Foreign riches", nicknames: ["Elle", "Ellie", "Lodie"], why: "Soft and musical, with a familiar shape that still feels distinctive.", tags: ["Girl names", "Soft & melodic", "Smooth & melodic", "Uncommon & distinctive", "Medium—two or three syllables", "Something uncommon"] },
-  { name: "Silas", pronunciation: "SY-lus", origin: "Latin & Greek", meaning: "Of the forest", nicknames: ["Si", "Sly"], why: "A grounded classic with natural warmth and a quietly confident sound.", tags: ["Boy names", "Classic", "Nature-inspired", "Strong", "Strength", "Nature", "Familiar, but not everywhere"] },
-  { name: "Maren", pronunciation: "MARE-en", origin: "Scandinavian", meaning: "Of the sea", nicknames: ["Mari", "Ren"], why: "Calm and polished, balancing a gentle sound with uncommon character.", tags: ["Girl names", "Gender-neutral names", "Nature-inspired", "Soft & gentle", "Nature", "Something uncommon"] },
-  { name: "August", pronunciation: "AW-gust", origin: "Latin", meaning: "Magnificent, venerable", nicknames: ["Auggie", "Gus"], why: "A vintage name with substance, warmth, and exceptionally charming nicknames.", tags: ["Boy names", "Gender-neutral names", "Vintage", "Classic", "Strong & confident", "Strength", "Well-known & timeless"] },
-  { name: "Noa", pronunciation: "NO-ah", origin: "Hebrew", meaning: "Movement", nicknames: ["Noey"], why: "Brief, bright, and cross-cultural—with a modern ease and gentle strength.", tags: ["Girl names", "Gender-neutral names", "Modern", "Short & crisp", "Short—one or two syllables", "Freedom"] },
-  { name: "Clara", pronunciation: "KLAIR-ah", origin: "Latin", meaning: "Bright, clear", nicknames: ["Clare", "Clary"], why: "A luminous classic that feels graceful, warm, and enduring.", tags: ["Girl names", "Classic", "Traditional", "Joy", "Well-known & timeless"] },
-  { name: "Rowan", pronunciation: "ROH-en", origin: "Irish & Scottish", meaning: "Little red one; rowan tree", nicknames: ["Ro", "Row"], why: "Nature-rooted and contemporary, with an easy sound that suits every age.", tags: ["Boy names", "Gender-neutral names", "Nature-inspired", "Modern", "Nature", "Familiar, but not everywhere"] },
-  { name: "Amara", pronunciation: "ah-MAR-ah", origin: "Multiple origins", meaning: "Grace; eternal", nicknames: ["Ami", "Mara"], why: "A flowing multicultural name with an uplifting meaning and elegant rhythm.", tags: ["Girl names", "Smooth & melodic", "Spiritual", "Faith", "Love", "Medium—two or three syllables"] },
-  { name: "Felix", pronunciation: "FEE-liks", origin: "Latin", meaning: "Happy, fortunate", nicknames: ["Fee", "Lix"], why: "Cheerful without being childish, familiar without feeling overused.", tags: ["Boy names", "Classic", "Bright & energetic", "Joy", "Recognizable, not too common"] },
-  { name: "Ione", pronunciation: "eye-OH-nee", origin: "Greek", meaning: "Violet flower", nicknames: ["Io", "Oni"], why: "Rare, lyrical, and rooted in nature—an artful name with genuine history.", tags: ["Girl names", "Rare", "Nature-inspired", "Rare & unexpected", "The rarer, the better", "Nature"] },
-];
-
 function Mark() { return <span className="mark" aria-hidden="true">n</span>; }
+
+function rankedPool(answers: AnswerMap, buckets: Record<string,string>, seen: string[]) {
+  const selected = Object.values(answers).flat();
+  const direction = answers.direction?.[0];
+  const positiveTags = names.filter(n => buckets[n.name] === "love" || buckets[n.name] === "maybe").flatMap(n => n.tags);
+  const negativeTags = names.filter(n => buckets[n.name] === "pass").flatMap(n => n.tags);
+  const eligible = names.filter(n => {
+    if (seen.includes(n.name)) return false;
+    if (!direction || direction === "Show me everything" || direction === "We’re not sure yet") return true;
+    return n.tags.includes(direction);
+  });
+  const scored = eligible.map(item => {
+    let score = item.tags.reduce((total, tag) => total + (selected.includes(tag) ? 4 : 0), 0);
+    score += item.tags.reduce((total, tag) => total + positiveTags.filter(t => t === tag).length * 1.6, 0);
+    score -= item.tags.reduce((total, tag) => total + negativeTags.filter(t => t === tag).length * .45, 0);
+    score += item.name.split("").reduce((n, c) => n + c.charCodeAt(0), 0) % 17 / 20;
+    return { item, score };
+  }).sort((a,b) => b.score - a.score);
+  const diverse: NameItem[] = [];
+  while (scored.length && diverse.length < 15) {
+    scored.sort((a,b) => {
+      const penalty = (x: NameItem) => diverse.some(d => d.origin === x.origin) ? 2.2 : 0;
+      return (b.score - penalty(b.item)) - (a.score - penalty(a.item));
+    });
+    diverse.push(scored.shift()!.item);
+  }
+  return diverse;
+}
 
 export default function Home() {
   const [step, setStep] = useState<Step>("welcome");
@@ -49,22 +56,21 @@ export default function Home() {
   const [current, setCurrent] = useState(0);
   const [buckets, setBuckets] = useState<Record<string, string>>({});
   const [showBuckets, setShowBuckets] = useState(false);
+  const [batch, setBatch] = useState<NameItem[]>(names.slice(0,5));
+  const [seen, setSeen] = useState<string[]>([]);
+  const [finding, setFinding] = useState(false);
+  const [aiRefined, setAiRefined] = useState(false);
 
   useEffect(() => {
     const saved = localStorage.getItem("namekind-journey");
     if (saved) {
-      try { setBuckets(JSON.parse(saved).buckets || {}); } catch { /* fresh journey */ }
+      try { const journey = JSON.parse(saved); setBuckets(journey.buckets || {}); setSeen(journey.seen || []); } catch { /* fresh journey */ }
     }
   }, []);
 
   useEffect(() => {
-    localStorage.setItem("namekind-journey", JSON.stringify({ answers, surname, nickname, buckets }));
-  }, [answers, surname, nickname, buckets]);
-
-  const recommendations = useMemo(() => {
-    const selected = Object.values(answers).flat();
-    return [...names].sort((a, b) => b.tags.filter(t => selected.includes(t)).length - a.tags.filter(t => selected.includes(t)).length);
-  }, [answers]);
+    localStorage.setItem("namekind-journey", JSON.stringify({ answers, surname, nickname, buckets, seen }));
+  }, [answers, surname, nickname, buckets, seen]);
 
   const q = questions[question];
   const selected = answers[q?.id] || [];
@@ -74,10 +80,29 @@ export default function Home() {
   };
   const nextQuestion = () => question < questions.length - 1 ? setQuestion(question + 1) : setStep("profile");
   const rate = (bucket: string) => {
-    setBuckets({ ...buckets, [recommendations[current].name]: bucket });
-    if (current < 4) setCurrent(current + 1); else setShowBuckets(true);
+    setBuckets({ ...buckets, [batch[current].name]: bucket });
+    if (current < batch.length - 1) setCurrent(current + 1); else setShowBuckets(true);
   };
-  const restart = () => { setAnswers({}); setBuckets({}); setQuestion(0); setCurrent(0); setStep("welcome"); setShowBuckets(false); localStorage.removeItem("namekind-journey"); };
+  const loadNext = async (first = false) => {
+    setFinding(true);
+    const alreadySeen = first ? [] : seen;
+    const candidates = rankedPool(answers, buckets, alreadySeen);
+    let next = candidates.slice(0,5);
+    let refined = false;
+    if (candidates.length) {
+      try {
+        const response = await fetch("/api/refine", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({answers,buckets,nickname,surname,candidates:candidates.map(n => ({name:n.name,origin:n.origin,meaning:n.meaning,tags:n.tags}))})});
+        if (response.ok) {
+          const data = await response.json() as { names?: string[] };
+          const ordered = (data.names || []).map(name => candidates.find(n => n.name === name)).filter(Boolean) as NameItem[];
+          if (ordered.length >= 5) { next = ordered.slice(0,5); refined = true; }
+        }
+      } catch { /* the local ranking is always ready */ }
+    }
+    if (!next.length) next = rankedPool(answers, buckets, []).filter(n => !buckets[n.name]).slice(0,5);
+    setBatch(next); setSeen([...alreadySeen, ...next.map(n => n.name)]); setCurrent(0); setAiRefined(refined); setFinding(false); setShowBuckets(false); setStep("results");
+  };
+  const restart = () => { setAnswers({}); setBuckets({}); setSeen([]); setQuestion(0); setCurrent(0); setStep("welcome"); setShowBuckets(false); localStorage.removeItem("namekind-journey"); };
 
   return <main>
     <header className="site-header">
@@ -118,17 +143,17 @@ export default function Home() {
       <p className="eyebrow">Your naming profile</p><h2>Here’s what we heard.</h2><p className="sub">One last look before we find your names. Tap any answer to change it.</p>
       <div className="profile-grid">{questions.map((item, i) => <button key={item.id} onClick={() => {setQuestion(i); setStep("questions")}}><small>{item.title.replace("?", "")}</small><strong>{(answers[item.id] || ["Open to anything"]).join(" · ")}</strong><span>Edit</span></button>)}</div>
       <div className="extras"><label><span>Optional surname</span><input value={surname} onChange={e => setSurname(e.target.value)} placeholder="Helps us hear the full name" /></label><label><span>Nickname potential</span><select value={nickname} onChange={e => setNickname(e.target.value)}><option>Very important</option><option>Nice to have</option><option>Prefer no obvious nickname</option><option>No preference</option></select></label></div>
-      <button className="primary" onClick={() => {setCurrent(0); setStep("results")}}>Find my names <span>→</span></button>
+      <button className="primary" disabled={finding} onClick={() => loadNext(true)}>{finding ? "Finding thoughtful matches…" : "Find my names"} {!finding && <span>→</span>}</button>
       <p className="fine">We use your answers to do the heavy lifting before any AI refinement.</p>
     </section>}
 
     {step === "results" && !showBuckets && <section className="results page-enter">
-      <div className="results-top"><div><p className="eyebrow">Your first five</p><h2>Meet {recommendations[current].name}.</h2></div><span>{current + 1} of 5</span></div>
+      <div className="results-top"><div><p className="eyebrow">{aiRefined ? "AI-refined for you" : seen.length > 5 ? "Learning your taste" : "Your first five"}</p><h2>Meet {batch[current].name}.</h2></div><span>{current + 1} of {batch.length}</span></div>
       <article className="name-card">
-        <div className="name-main"><div className="monogram">{recommendations[current].name[0]}</div><div><h3>{recommendations[current].name}{surname && <small> {surname}</small>}</h3><p>{recommendations[current].pronunciation} <i /> {recommendations[current].origin}</p></div></div>
-        <div className="meaning"><span>Meaning</span><strong>“{recommendations[current].meaning}”</strong></div>
-        <p className="why">{recommendations[current].why}</p>
-        <div className="nickname-row"><span>Nickname possibilities</span>{recommendations[current].nicknames.map(n => <b key={n}>{n}</b>)}</div>
+        <div className="name-main"><div className="monogram">{batch[current].name[0]}</div><div><h3>{batch[current].name}{surname && <small> {surname}</small>}</h3><p>{batch[current].pronunciation} <i /> {batch[current].origin}</p></div></div>
+        <div className="meaning"><span>Meaning</span><strong>“{batch[current].meaning}”</strong></div>
+        <p className="why">{batch[current].why}</p>
+        <div className="nickname-row"><span>Nickname possibilities</span>{batch[current].nicknames.map(n => <b key={n}>{n}</b>)}</div>
         <div className="rating"><button onClick={() => rate("pass")}><span>↓</span><small>Not for us</small></button><button onClick={() => rate("maybe")}><span>↔</span><small>Maybe</small></button><button className="love" onClick={() => rate("love")}><span>↑</span><small>Love it</small></button></div>
       </article>
       <button className="quiet" onClick={() => setShowBuckets(true)}>Review my shortlist</button>
@@ -136,7 +161,7 @@ export default function Home() {
 
     {showBuckets && <div className="modal-wrap page-enter"><section className="shortlist"><button className="modal-close" onClick={() => setShowBuckets(false)}>×</button><p className="eyebrow">Your shortlist</p><h2>The names taking shape.</h2><p className="sub">Everything stays on this device unless you choose to save.</p>
       <div className="bucket-grid">{[["love","Loved","The clear favorites"],["maybe","Maybe","Worth another look"],["pass","Passed","Not quite right"]].map(([key,label,desc]) => <div className="bucket" key={key}><div><span>{label}</span><small>{desc}</small></div>{Object.entries(buckets).filter(([,v]) => v === key).length ? Object.entries(buckets).filter(([,v]) => v === key).map(([name]) => <button key={name}>{name}<span>•••</span></button>) : <p>No names here yet</p>}</div>)}</div>
-      <div className="shortlist-actions"><button className="quiet" onClick={restart}>Start over</button><button className="primary small" onClick={() => {setShowBuckets(false); setCurrent(0); setStep("results")}}>Explore five more <span>→</span></button></div>
+      <div className="shortlist-actions"><button className="quiet" onClick={restart}>Start over</button><button className="primary small" disabled={finding} onClick={() => loadNext(false)}>{finding ? "Learning your taste…" : "Explore five new names"} {!finding && <span>→</span>}</button></div>
     </section></div>}
 
     <footer><div className="brand"><Mark /><span>namekind</span></div><p>Names chosen with meaning, not just momentum.</p><span>Baby names today. More ways to name, soon.</span></footer>
