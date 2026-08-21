@@ -1,5 +1,6 @@
-import { env } from "cloudflare:workers";
 import { names as nameDatabase } from "../../name-data";
+
+export const runtime = "nodejs";
 
 const MAX_CANDIDATES = 15;
 const MAX_BODY_BYTES = 24_000;
@@ -28,25 +29,25 @@ async function visitorHash(request: Request) {
   return Array.from(new Uint8Array(digest)).map(byte => byte.toString(16).padStart(2,"0")).join("");
 }
 
+type UsageEntry = { visitorHash:string; createdAt:number };
+const globalForUsage = globalThis as typeof globalThis & { namekindAiUsage?: UsageEntry[] };
+const usage = globalForUsage.namekindAiUsage ??= [];
+
 async function reserveAiCall(request: Request) {
-  const db = env.DB;
-  if (!db) return { allowed: false, reason: "AI protection is unavailable" };
   const now = Math.floor(Date.now() / 1000);
   const hourAgo = now - 3600;
   const dayAgo = now - 86400;
   const hash = await visitorHash(request);
-  const [recent, hourly, daily, global] = await Promise.all([
-    db.prepare("SELECT MAX(created_at) AS value FROM ai_usage WHERE visitor_hash = ?").bind(hash).first<{value:number|null}>(),
-    db.prepare("SELECT COUNT(*) AS value FROM ai_usage WHERE visitor_hash = ? AND created_at >= ?").bind(hash, hourAgo).first<{value:number}>(),
-    db.prepare("SELECT COUNT(*) AS value FROM ai_usage WHERE visitor_hash = ? AND created_at >= ?").bind(hash, dayAgo).first<{value:number}>(),
-    db.prepare("SELECT COUNT(*) AS value FROM ai_usage WHERE created_at >= ?").bind(dayAgo).first<{value:number}>(),
-  ]);
-  if (recent?.value && now - recent.value < COOLDOWN_SECONDS) return { allowed:false, reason:"Please wait a moment before refining again" };
-  if ((hourly?.value || 0) >= VISITOR_HOURLY_LIMIT) return { allowed:false, reason:"Hourly AI limit reached" };
-  if ((daily?.value || 0) >= VISITOR_DAILY_LIMIT) return { allowed:false, reason:"Daily AI limit reached" };
-  if ((global?.value || 0) >= GLOBAL_DAILY_LIMIT) return { allowed:false, reason:"Today’s AI refinement budget is complete" };
-  await db.prepare("INSERT INTO ai_usage (visitor_hash, created_at) VALUES (?, ?)").bind(hash, now).run();
-  if (Math.random() < .02) await db.prepare("DELETE FROM ai_usage WHERE created_at < ?").bind(dayAgo - 86400).run();
+  const recent = usage.filter(entry => entry.visitorHash === hash).reduce((latest, entry) => Math.max(latest, entry.createdAt), 0);
+  const hourly = usage.filter(entry => entry.visitorHash === hash && entry.createdAt >= hourAgo).length;
+  const daily = usage.filter(entry => entry.visitorHash === hash && entry.createdAt >= dayAgo).length;
+  const globalDaily = usage.filter(entry => entry.createdAt >= dayAgo).length;
+  if (recent && now - recent < COOLDOWN_SECONDS) return { allowed:false, reason:"Please wait a moment before refining again" };
+  if (hourly >= VISITOR_HOURLY_LIMIT) return { allowed:false, reason:"Hourly AI limit reached" };
+  if (daily >= VISITOR_DAILY_LIMIT) return { allowed:false, reason:"Daily AI limit reached" };
+  if (globalDaily >= GLOBAL_DAILY_LIMIT) return { allowed:false, reason:"Today’s AI refinement budget is complete" };
+  usage.push({ visitorHash:hash, createdAt:now });
+  if (usage.length > GLOBAL_DAILY_LIMIT * 2) usage.splice(0, usage.findIndex(entry => entry.createdAt >= dayAgo));
   return { allowed:true, reason:"" };
 }
 
