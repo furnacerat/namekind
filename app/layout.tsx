@@ -4,6 +4,7 @@ import Script from "next/script";
 import "./globals.css";
 
 const siteUrl = "https://hellonamekind.com";
+const defaultAdsenseClient = "ca-pub-2430691199031112";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -34,7 +35,7 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const adsenseClient = process.env.NEXT_PUBLIC_GOOGLE_ADSENSE_CLIENT;
+  const adsenseClient = process.env.NEXT_PUBLIC_GOOGLE_ADSENSE_CLIENT || defaultAdsenseClient;
   const structuredData = [
     { "@context":"https://schema.org", "@type":"Organization", name:"Namekind", url:siteUrl, email:"hello@hellonamekind.com", founder:{"@type":"Person",name:"Harold Foster"} },
     { "@context":"https://schema.org", "@type":"WebSite", name:"Namekind", url:siteUrl, description:"Personalized baby name discovery shaped by meaning, sound, style, and story." },
@@ -46,7 +47,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         {children}
-        {adsenseClient && <Script id="namekind-adsense" async strategy="afterInteractive" crossOrigin="anonymous" src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${adsenseClient}`} />}
+        <Script id="namekind-adsense" async strategy="afterInteractive" crossOrigin="anonymous" src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${adsenseClient}`} />
       </body>
     </html>
   );
