@@ -210,6 +210,6 @@ export default function Home() {
       <div className="shortlist-actions"><button className="quiet" onClick={restart}>Start over</button><button className="primary small" disabled={finding} onClick={() => loadNext(false)}>{finding ? "Learning your taste…" : "Explore five new names"} {!finding && <span>→</span>}</button></div>
     </section></div>}
 
-    <footer className="home-footer"><div className="brand"><Mark /><span>namekind</span></div><p>Names chosen with meaning, not just momentum.</p><nav aria-label="Legal and information"><Link href="/about">About</Link><Link href="/privacy">Privacy</Link><Link href="/terms">Terms</Link><Link href="/cookies">Cookies</Link><Link href="/contact">Contact</Link></nav></footer>
+    <footer className="home-footer"><div className="brand"><Mark /><span>namekind</span></div><p>Names chosen with meaning, not just momentum.</p><nav aria-label="Legal and information"><Link href="/guides/choosing-a-baby-name">Guide</Link><Link href="/about">About</Link><Link href="/privacy">Privacy</Link><Link href="/terms">Terms</Link><Link href="/cookies">Cookies</Link><Link href="/contact">Contact</Link></nav></footer>
   </main>;
 }

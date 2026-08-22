@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { InfoLayout } from "../info-layout";
 
-export const metadata: Metadata = { title:"About namekind", description:"Why namekind is building a more thoughtful way to choose a name." };
+export const metadata: Metadata = { title:"About namekind", description:"Why namekind is building a more thoughtful way to choose a name.", alternates:{ canonical:"/about" } };
 
 export default function AboutPage() { return <InfoLayout eyebrow="Our reason for being" title="A name is more than a list." intro="Namekind helps parents move beyond endless alphabetical directories and discover names through meaning, sound, story, and instinct.">
   <section><h2>Why namekind exists</h2><p>Most baby-name sites begin with thousands of names and leave the hardest work to the parent. Namekind begins with you. A short, adaptive conversation creates a preference profile, a curated engine narrows the possibilities, and optional AI performs a small final refinement.</p></section>

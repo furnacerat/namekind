@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 import { InfoLayout } from "../info-layout";
 
-export const metadata: Metadata = { title:"Terms of Use — namekind", description:"Terms governing use of the namekind service." };
+export const metadata: Metadata = { title:"Terms of Use — namekind", description:"Terms governing use of the namekind service.", alternates:{ canonical:"/terms" } };
 
 export default function TermsPage() { return <InfoLayout eyebrow="The ground rules" title="Terms of Use" intro="These terms help keep namekind useful, respectful, and available to everyone.">
-  <p className="updated">Last updated: August 18, 2026</p>
+  <p className="updated">Last updated: August 21, 2026</p>
   <section><h2>Agreement</h2><p>These Terms govern your use of namekind, operated by Harold Foster in Ohio, United States. By using the service, you agree to these Terms and our Privacy Policy. If you do not agree, do not use the service.</p></section>
   <section><h2>Who may use namekind</h2><p>Namekind is intended for adults and is not directed to children under 13. If you use the service on behalf of another person or organization, you represent that you have authority to accept these Terms for them.</p></section>
   <section><h2>What the service provides</h2><p>Namekind offers tools for exploring and comparing names. Recommendations may be produced by curated data, preference-based ranking, and artificial intelligence. The service is for inspiration and general information only.</p></section>
@@ -17,5 +17,5 @@ export default function TermsPage() { return <InfoLayout eyebrow="The ground rul
   <section><h2>Disclaimer</h2><p>To the fullest extent permitted by law, namekind is provided “as is” and “as available,” without warranties of any kind, express or implied, including merchantability, fitness for a particular purpose, noninfringement, accuracy, or uninterrupted availability.</p></section>
   <section><h2>Limitation of liability</h2><p>To the fullest extent permitted by law, Harold Foster and namekind will not be liable for indirect, incidental, special, consequential, exemplary, or punitive damages, lost profits or data, or decisions made using the service. Where liability cannot be excluded, aggregate liability will not exceed the greater of amounts you paid to use namekind during the preceding twelve months or US $100.</p></section>
   <section><h2>Governing law</h2><p>These Terms are governed by the laws of the State of Ohio and applicable United States federal law, without regard to conflict-of-law principles. Nothing in these Terms limits rights that cannot lawfully be waived.</p></section>
-  <section><h2>Contact</h2><p>A domain-based legal contact address will be added to the Contact page before public commercial launch.</p></section>
+  <section><h2>Contact</h2><p>Questions about these Terms may be sent to <a href="mailto:hello@hellonamekind.com">hello@hellonamekind.com</a>.</p></section>
 </InfoLayout> }
