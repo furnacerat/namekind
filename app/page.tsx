@@ -4,10 +4,13 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { names, type NameItem } from "./name-data";
 
-type Step = "welcome" | "together" | "questions" | "details" | "profile" | "results";
+type Step = "welcome" | "purpose" | "together" | "questions" | "details" | "profile" | "results";
+type JourneyMode = "baby" | "sibling" | "twins";
 type AnswerMap = Record<string, string[]>;
 type Details = { likedNames:string; dislikedNames:string; familyName:string; honorStyle:string; preferredInitials:string; avoidedLetters:string; siblingNames:string };
 type Question = { id:string; eyebrow:string; title:string; helper:string; max:number; options:string[]; when?:(answers:AnswerMap)=>boolean };
+type TwinPair = { first:NameItem; second:NameItem };
+type JourneySave = { version:2; mode:JourneyMode; answers:AnswerMap; details:Details; surname:string; nickname:string; buckets:Record<string,string>; seen:string[] };
 const emptyDetails: Details = { likedNames:"", dislikedNames:"", familyName:"", honorStyle:"Inspiration only", preferredInitials:"", avoidedLetters:"", siblingNames:"" };
 
 const questions: Question[] = [
@@ -23,6 +26,12 @@ const questions: Question[] = [
   { id: "spelling", eyebrow: "The finishing touch", title: "How should the spelling feel?", helper: "This helps us balance ease, familiarity, and originality.", max: 1, options: ["Conventional", "Flexible", "Distinctive", "No preference"] },
 ];
 
+const twinQuestions: Question[] = [
+  { id:"twinDirection", eyebrow:"Two little people", title:"What kind of twin pairing are you naming?", helper:"This sets the broadest direction for each pair.", max:1, options:["Two girls", "Two boys", "A girl and a boy", "Gender-neutral pair", "Show us every combination"] },
+  { id:"twinConnection", eyebrow:"Together, not identical", title:"How connected should their names feel?", helper:"The best twin names belong together while leaving room for two identities.", max:1, options:["Subtly coordinated", "Clearly connected", "Distinct but balanced", "Surprise us"] },
+  { id:"twinAvoid", eyebrow:"Their own identities", title:"What should we avoid in a twin pair?", helper:"Choose any patterns that would feel too matched.", max:3, options:["Same first initial", "Rhyming endings", "Very different popularity", "Different cultural roots", "Nothing in particular"] },
+];
+
 function Mark() { return <span className="mark" aria-hidden="true">n</span>; }
 
 const cultureOrigins: Record<string,string[]> = {
@@ -33,7 +42,7 @@ const cultureOrigins: Record<string,string[]> = {
 };
 const list = (value:string) => value.split(",").map(x => x.trim().toLowerCase()).filter(Boolean).slice(0,6);
 
-function rankedPool(answers: AnswerMap, details: Details, buckets: Record<string,string>, seen: string[]) {
+function rankedPool(answers: AnswerMap, details: Details, buckets: Record<string,string>, seen: string[], mode:JourneyMode = "baby") {
   const selected = Object.values(answers).flat();
   const direction = answers.direction?.[0];
   const liked = list(details.likedNames);
@@ -58,6 +67,12 @@ function rankedPool(answers: AnswerMap, details: Details, buckets: Record<string
     if (preferredInitials.includes(item.name[0].toLowerCase())) score += 5;
     if (details.honorStyle === "Same initial" && familyInitial === item.name[0].toLowerCase()) score += 7;
     if (details.honorStyle === "Use it directly" && item.name.toLowerCase() === details.familyName.trim().toLowerCase()) score += 12;
+    if (mode === "sibling" && details.siblingNames.trim()) {
+      const siblings = list(details.siblingNames);
+      const siblingItems = names.filter(n => siblings.includes(n.name.toLowerCase()));
+      score += siblingItems.reduce((total, sibling) => total + item.tags.filter(tag => sibling.tags.includes(tag)).length * 1.4, 0);
+      if (siblings.some(name => name[0] === item.name[0].toLowerCase())) score += 1.5;
+    }
     if (avoidedLetters.split("").some(letter => item.name.toLowerCase().includes(letter))) score -= 8;
     if (answers.spelling?.[0] === "Conventional" && item.tags.some(tag => ["Classic","Traditional","Well-known & timeless"].includes(tag))) score += 3;
     if (answers.spelling?.[0] === "Distinctive" && item.tags.some(tag => ["Creative","Rare","Rare & unexpected"].includes(tag))) score += 3;
@@ -75,8 +90,37 @@ function rankedPool(answers: AnswerMap, details: Details, buckets: Record<string
   return diverse;
 }
 
+function twinPairs(pool:NameItem[], answers:AnswerMap, seen:string[]):TwinPair[] {
+  const direction = answers.twinDirection?.[0];
+  const connection = answers.twinConnection?.[0];
+  const avoid = answers.twinAvoid || [];
+  const pairKey = (a:NameItem,b:NameItem) => [a.name,b.name].sort().join(" + ");
+  const genderOk = (a:NameItem,b:NameItem) => {
+    if (!direction || direction === "Show us every combination") return true;
+    if (direction === "Two girls") return a.tags.includes("Girl names") && b.tags.includes("Girl names");
+    if (direction === "Two boys") return a.tags.includes("Boy names") && b.tags.includes("Boy names");
+    if (direction === "Gender-neutral pair") return a.tags.includes("Gender-neutral names") && b.tags.includes("Gender-neutral names");
+    return (a.tags.includes("Girl names") && b.tags.includes("Boy names")) || (a.tags.includes("Boy names") && b.tags.includes("Girl names"));
+  };
+  const candidates:{pair:TwinPair;score:number}[] = [];
+  pool.forEach((first, index) => pool.slice(index + 1).forEach(second => {
+    if (!genderOk(first, second) || seen.includes(pairKey(first,second))) return;
+    if (avoid.includes("Same first initial") && first.name[0] === second.name[0]) return;
+    if (avoid.includes("Rhyming endings") && first.name.slice(-2).toLowerCase() === second.name.slice(-2).toLowerCase()) return;
+    if (avoid.includes("Different cultural roots") && first.origin !== second.origin) return;
+    const overlap = first.tags.filter(tag => second.tags.includes(tag)).length;
+    let score = overlap * (connection === "Clearly connected" ? 3 : connection === "Distinct but balanced" ? .7 : 1.7);
+    if (first.origin === second.origin) score += connection === "Distinct but balanced" ? .5 : 2;
+    if (first.name[0] !== second.name[0]) score += 2;
+    if (first.name.length !== second.name.length) score += 1;
+    candidates.push({pair:{first,second},score});
+  }));
+  return candidates.sort((a,b) => b.score-a.score).slice(0,15).map(item => item.pair);
+}
+
 export default function Home() {
   const [step, setStep] = useState<Step>("welcome");
+  const [mode, setMode] = useState<JourneyMode>("baby");
   const [question, setQuestion] = useState(0);
   const [answers, setAnswers] = useState<AnswerMap>({});
   const [details, setDetails] = useState<Details>(emptyDetails);
@@ -86,22 +130,39 @@ export default function Home() {
   const [buckets, setBuckets] = useState<Record<string, string>>({});
   const [showBuckets, setShowBuckets] = useState(false);
   const [batch, setBatch] = useState<NameItem[]>(names.slice(0,5));
+  const [pairs, setPairs] = useState<TwinPair[]>([]);
   const [seen, setSeen] = useState<string[]>([]);
   const [finding, setFinding] = useState(false);
   const [aiRefined, setAiRefined] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
-    const saved = localStorage.getItem("namekind-journey");
-    if (saved) {
-      try { const journey = JSON.parse(saved); setAnswers(journey.answers || {}); setDetails({...emptyDetails,...(journey.details || {})}); setSurname(journey.surname || ""); setNickname(journey.nickname || "Nice to have"); setBuckets(journey.buckets || {}); setSeen(journey.seen || []); } catch { /* fresh journey */ }
-    }
+    const timer = window.setTimeout(() => {
+      const saved = localStorage.getItem("namekind-journey");
+      if (saved) {
+        try {
+          const journey = JSON.parse(saved) as Partial<JourneySave>;
+          setMode(journey.mode || "baby");
+          setAnswers(journey.answers || {});
+          setDetails({...emptyDetails,...(journey.details || {})});
+          setSurname(journey.surname || "");
+          setNickname(journey.nickname || "Nice to have");
+          setBuckets(journey.buckets || {});
+          setSeen(journey.seen || []);
+        } catch { /* fresh journey */ }
+      }
+      setHydrated(true);
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, []);
 
   useEffect(() => {
-    localStorage.setItem("namekind-journey", JSON.stringify({ answers, details, surname, nickname, buckets, seen }));
-  }, [answers, details, surname, nickname, buckets, seen]);
+    if (!hydrated) return;
+    const journey:JourneySave = { version:2, mode, answers, details, surname, nickname, buckets, seen };
+    localStorage.setItem("namekind-journey", JSON.stringify(journey));
+  }, [hydrated, mode, answers, details, surname, nickname, buckets, seen]);
 
-  const activeQuestions = questions.filter(item => !item.when || item.when(answers));
+  const activeQuestions = [...(mode === "twins" ? twinQuestions : []), ...questions].filter(item => (mode !== "twins" || item.id !== "direction") && (!item.when || item.when(answers)));
   const q = activeQuestions[question];
   const selected = answers[q?.id] || [];
   const toggle = (option: string) => {
@@ -110,13 +171,22 @@ export default function Home() {
   };
   const nextQuestion = () => question < activeQuestions.length - 1 ? setQuestion(question + 1) : setStep("details");
   const rate = (bucket: string) => {
-    setBuckets({ ...buckets, [batch[current].name]: bucket });
-    if (current < batch.length - 1) setCurrent(current + 1); else setShowBuckets(true);
+    const key = mode === "twins" ? [pairs[current].first.name,pairs[current].second.name].sort().join(" + ") : batch[current].name;
+    setBuckets({ ...buckets, [key]: bucket });
+    const total = mode === "twins" ? pairs.length : batch.length;
+    if (current < total - 1) setCurrent(current + 1); else setShowBuckets(true);
   };
   const loadNext = async (first = false) => {
     setFinding(true);
     const alreadySeen = first ? [] : seen;
-    const candidates = rankedPool(answers, details, buckets, alreadySeen);
+    const candidates = rankedPool(answers, details, buckets, mode === "twins" ? [] : alreadySeen, mode);
+    if (mode === "twins") {
+      const nextPairs = twinPairs(candidates, answers, alreadySeen).slice(0,5);
+      setPairs(nextPairs);
+      setSeen([...alreadySeen, ...nextPairs.map(pair => [pair.first.name,pair.second.name].sort().join(" + "))]);
+      setCurrent(0); setAiRefined(false); setFinding(false); setShowBuckets(false); setStep("results");
+      return;
+    }
     let next = candidates.slice(0,5);
     let refined = false;
     if (candidates.length) {
@@ -129,10 +199,11 @@ export default function Home() {
         }
       } catch { /* the local ranking is always ready */ }
     }
-    if (!next.length) next = rankedPool(answers, details, buckets, []).filter(n => !buckets[n.name]).slice(0,5);
+    if (!next.length) next = rankedPool(answers, details, buckets, [], mode).filter(n => !buckets[n.name]).slice(0,5);
     setBatch(next); setSeen([...alreadySeen, ...next.map(n => n.name)]); setCurrent(0); setAiRefined(refined); setFinding(false); setShowBuckets(false); setStep("results");
   };
-  const restart = () => { setAnswers({}); setDetails(emptyDetails); setSurname(""); setNickname("Nice to have"); setBuckets({}); setSeen([]); setQuestion(0); setCurrent(0); setStep("welcome"); setShowBuckets(false); localStorage.removeItem("namekind-journey"); };
+  const chooseMode = (nextMode:JourneyMode) => { setMode(nextMode); setAnswers({}); setBuckets({}); setSeen([]); setQuestion(0); setCurrent(0); setStep("together"); };
+  const restart = () => { setMode("baby"); setAnswers({}); setDetails(emptyDetails); setSurname(""); setNickname("Nice to have"); setBuckets({}); setSeen([]); setPairs([]); setQuestion(0); setCurrent(0); setStep("welcome"); setShowBuckets(false); localStorage.removeItem("namekind-journey"); };
 
   return <main>
     <header className="site-header">
@@ -145,15 +216,27 @@ export default function Home() {
       <p className="eyebrow">A more thoughtful way to choose</p>
       <h1>Find a name that<br /><em>feels like yours.</em></h1>
       <p className="lede">A few gentle questions. A world of meaningful names.<br className="desktop" /> Recommendations shaped around your story.</p>
-      <button className="primary" onClick={() => setStep("together")}>Find your names <span>→</span></button>
+      <button className="primary" onClick={() => setStep("purpose")}>Find your names <span>→</span></button>
       <div className="trust"><span>✦ No account needed</span><span>✦ Private by design</span><span>✦ Thoughtfully curated</span></div>
       <div className="name-cloud" aria-hidden="true"><span>Elodie</span><span>Silas</span><span>Maren</span><span>August</span><span>Noa</span></div>
     </section>}
 
-    {step === "together" && <section className="center-card page-enter">
+    {step === "purpose" && <section className="center-card purpose page-enter">
       <button className="back" onClick={() => setStep("welcome")}>← Back</button>
+      <p className="eyebrow">Begin your journey</p><h2>What are you naming today?</h2>
+      <p className="sub">Choose a path and we’ll shape every question—and every suggestion—around it.</p>
+      <div className="purpose-grid">
+        <button className="purpose-card" onClick={() => chooseMode("baby")}><span className="card-symbol">♡</span><strong>A baby</strong><small>Discover a first name that feels like yours</small><b>Begin →</b></button>
+        <button className="purpose-card" onClick={() => chooseMode("sibling")}><span className="card-symbol">⌁</span><strong>A sibling</strong><small>Find a name that belongs beautifully with your family</small><b>Find a match →</b></button>
+        <button className="purpose-card featured" onClick={() => chooseMode("twins")}><span className="new-pill">New</span><span className="card-symbol">∞</span><strong>Twins</strong><small>Explore balanced pairs with two distinct identities</small><b>Find a pair →</b></button>
+        <div className="purpose-card coming"><span className="new-pill">Coming next</span><span className="card-symbol">✦</span><strong>A pet</strong><small>A playful naming journey for every kind of companion</small><b>In development</b></div>
+      </div>
+    </section>}
+
+    {step === "together" && <section className="center-card page-enter">
+      <button className="back" onClick={() => setStep("purpose")}>← Back</button>
       <p className="eyebrow">Your naming journey</p><h2>Are you naming together<br />or exploring on your own?</h2>
-      <p className="sub">You can always invite someone later.</p>
+      <p className="sub">You can always invite someone later. Your {mode === "twins" ? "twin-name" : mode === "sibling" ? "sibling-name" : "baby-name"} path is ready.</p>
       <div className="journey-grid">
         <button className="journey-card" onClick={() => setStep("questions")}><span className="card-symbol">♡</span><strong>Exploring on my own</strong><small>Start discovering names right away</small><b>Continue →</b></button>
         <button className="journey-card" onClick={() => setStep("questions")}><span className="card-symbol">♧</span><strong>Naming together</strong><small>Create a private journey for two</small><b>Start together →</b></button>
@@ -179,21 +262,21 @@ export default function Home() {
         <label><span>How should we honor it?</span><small>Choose the kind of connection</small><select value={details.honorStyle} onChange={e => setDetails({...details,honorStyle:e.target.value})}><option>Inspiration only</option><option>Same initial</option><option>Use it directly</option><option>Preserve the meaning</option><option>Find variations</option></select></label>
         <label><span>Initials you’d enjoy</span><small>Letters only, such as A, M, or S</small><input value={details.preferredInitials} onChange={e => setDetails({...details,preferredInitials:e.target.value})} placeholder="A, M" /></label>
         <label><span>Letters you’d rather avoid</span><small>We’ll gently filter names containing them</small><input value={details.avoidedLetters} onChange={e => setDetails({...details,avoidedLetters:e.target.value})} placeholder="X, Z" /></label>
-        <label className="wide"><span>Sibling names</span><small>Helps you consider how the names feel together</small><input value={details.siblingNames} onChange={e => setDetails({...details,siblingNames:e.target.value})} placeholder="Optional" /></label>
+        {mode !== "twins" && <label className="wide"><span>{mode === "sibling" ? "Your child’s name" : "Sibling names"}</span><small>{mode === "sibling" ? "We’ll look for a complementary style, rhythm, and personality" : "Helps you consider how the names feel together"}</small><input value={details.siblingNames} onChange={e => setDetails({...details,siblingNames:e.target.value})} placeholder={mode === "sibling" ? "Enter the sibling’s name" : "Optional"} /></label>}
       </div>
       <button className="primary" onClick={() => setStep("profile")}>Review my profile <span>→</span></button>
       <button className="quiet" onClick={() => setStep("profile")}>Skip these details</button>
     </section>}
 
     {step === "profile" && <section className="profile page-enter">
-      <p className="eyebrow">Your naming profile</p><h2>Here’s what we heard.</h2><p className="sub">One last look before we find your names. Tap any answer to change it.</p>
+      <p className="eyebrow">Your {mode === "twins" ? "twin" : mode === "sibling" ? "sibling" : "naming"} profile</p><h2>Here’s what we heard.</h2><p className="sub">One last look before we find your {mode === "twins" ? "pairs" : "names"}. Tap any answer to change it.</p>
       <div className="profile-grid">{activeQuestions.map((item, i) => <button key={item.id} onClick={() => {setQuestion(i); setStep("questions")}}><small>{item.title.replace("?", "")}</small><strong>{(answers[item.id] || ["Open to anything"]).join(" · ")}</strong><span>Edit</span></button>)}</div>
       <div className="extras"><label><span>Optional surname</span><input value={surname} onChange={e => setSurname(e.target.value)} placeholder="Helps us hear the full name" /></label><label><span>Nickname potential</span><select value={nickname} onChange={e => setNickname(e.target.value)}><option>Very important</option><option>Nice to have</option><option>Prefer no obvious nickname</option><option>No preference</option></select></label></div>
-      <button className="primary" disabled={finding} onClick={() => loadNext(true)}>{finding ? "Finding thoughtful matches…" : "Find my names"} {!finding && <span>→</span>}</button>
+      <button className="primary" disabled={finding} onClick={() => loadNext(true)}>{finding ? "Finding thoughtful matches…" : mode === "twins" ? "Find our twin pairs" : mode === "sibling" ? "Find sibling matches" : "Find my names"} {!finding && <span>→</span>}</button>
       <p className="fine">We use your answers to do the heavy lifting before any AI refinement.</p>
     </section>}
 
-    {step === "results" && !showBuckets && <section className="results page-enter">
+    {step === "results" && !showBuckets && mode !== "twins" && <section className="results page-enter">
       <div className="results-top"><div><p className="eyebrow">{aiRefined ? "AI-refined for you" : seen.length > 5 ? "Learning your taste" : "Your first five"}</p><h2>Meet {batch[current].name}.</h2></div><span>{current + 1} of {batch.length}</span></div>
       <article className="name-card">
         <div className="name-main"><div className="monogram">{batch[current].name[0]}</div><div><h3>{batch[current].name}{surname && <small> {surname}</small>}</h3><p>{batch[current].pronunciation} <i /> {batch[current].origin}</p></div></div>
@@ -203,6 +286,16 @@ export default function Home() {
         <div className="rating"><button onClick={() => rate("pass")}><span>↓</span><small>Not for us</small></button><button onClick={() => rate("maybe")}><span>↔</span><small>Maybe</small></button><button className="love" onClick={() => rate("love")}><span>↑</span><small>Love it</small></button></div>
       </article>
       <button className="quiet" onClick={() => setShowBuckets(true)}>Review my shortlist</button>
+    </section>}
+
+    {step === "results" && !showBuckets && mode === "twins" && pairs[current] && <section className="results twin-results page-enter">
+      <div className="results-top"><div><p className="eyebrow">A balanced pair for you</p><h2>Meet {pairs[current].first.name} &amp; {pairs[current].second.name}.</h2></div><span>{current + 1} of {pairs.length}</span></div>
+      <article className="name-card twin-card">
+        <div className="twin-name-grid">{[pairs[current].first,pairs[current].second].map(item => <div className="twin-name" key={item.name}><div className="monogram">{item.name[0]}</div><h3>{item.name}</h3><p>{item.pronunciation} · {item.origin}</p><span>“{item.meaning}”</span><small>{item.why}</small></div>)}</div>
+        <div className="pair-note"><span>Why they work together</span><p>They share a thoughtful sense of style while keeping different sounds and distinct identities. Try saying them separately, together, and with your surname.</p></div>
+        <div className="rating"><button onClick={() => rate("pass")}><span>↓</span><small>Not for us</small></button><button onClick={() => rate("maybe")}><span>↔</span><small>Maybe</small></button><button className="love" onClick={() => rate("love")}><span>↑</span><small>Love the pair</small></button></div>
+      </article>
+      <button className="quiet" onClick={() => setShowBuckets(true)}>Review our twin pairs</button>
     </section>}
 
     {showBuckets && <div className="modal-wrap page-enter"><section className="shortlist"><button className="modal-close" onClick={() => setShowBuckets(false)}>×</button><p className="eyebrow">Your shortlist</p><h2>The names taking shape.</h2><p className="sub">Everything stays on this device unless you choose to save.</p>
