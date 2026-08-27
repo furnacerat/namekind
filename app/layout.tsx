@@ -3,7 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
 
-const siteUrl = "https://hellonamekind.com";
+const siteUrl = "https://www.hellonamekind.com";
 const defaultAdsenseClient = "ca-pub-2430691199031112";
 
 const geistSans = Geist({
