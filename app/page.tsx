@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { names, type NameItem } from "./name-data";
+import { createCloudJourney, joinCloudJourney, loadCloudRatings, saveCloudJourney, saveCloudRating, subscribeToCloudJourney, type CloudRating } from "../lib/shared-journeys";
 
 type Step = "welcome" | "purpose" | "together" | "questions" | "details" | "profile" | "results";
 type JourneyMode = "baby" | "sibling" | "twins";
@@ -135,6 +136,12 @@ export default function Home() {
   const [finding, setFinding] = useState(false);
   const [aiRefined, setAiRefined] = useState(false);
   const [hydrated, setHydrated] = useState(false);
+  const [cloudJourney, setCloudJourney] = useState<{id:string;code:string;userId:string}|null>(null);
+  const [cloudRatings, setCloudRatings] = useState<CloudRating[]>([]);
+  const [cloudStatus, setCloudStatus] = useState<"local"|"saving"|"saved"|"error">("local");
+  const [showShare, setShowShare] = useState(false);
+  const [joinCode, setJoinCode] = useState("");
+  const [cloudError, setCloudError] = useState("");
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -151,6 +158,10 @@ export default function Home() {
           setSeen(journey.seen || []);
         } catch { /* fresh journey */ }
       }
+      const cloud = localStorage.getItem("namekind-cloud-journey");
+      if (cloud) {
+        try { setCloudJourney(JSON.parse(cloud)); } catch { localStorage.removeItem("namekind-cloud-journey"); }
+      }
       setHydrated(true);
     }, 0);
     return () => window.clearTimeout(timer);
@@ -161,6 +172,25 @@ export default function Home() {
     const journey:JourneySave = { version:2, mode, answers, details, surname, nickname, buckets, seen };
     localStorage.setItem("namekind-journey", JSON.stringify(journey));
   }, [hydrated, mode, answers, details, surname, nickname, buckets, seen]);
+
+  useEffect(() => {
+    if (!hydrated || !cloudJourney) return;
+    localStorage.setItem("namekind-cloud-journey", JSON.stringify(cloudJourney));
+    const timer = window.setTimeout(() => {
+      setCloudStatus("saving");
+      void saveCloudJourney(cloudJourney.id, { version:2, mode, answers, details, surname, nickname, seen })
+        .then(() => setCloudStatus("saved"))
+        .catch(() => setCloudStatus("error"));
+    }, 900);
+    return () => window.clearTimeout(timer);
+  }, [hydrated, cloudJourney, mode, answers, details, surname, nickname, seen]);
+
+  useEffect(() => {
+    if (!cloudJourney) return;
+    const refresh = () => { void loadCloudRatings(cloudJourney.id).then(setCloudRatings).catch(() => setCloudStatus("error")); };
+    refresh();
+    return subscribeToCloudJourney(cloudJourney.id, refresh);
+  }, [cloudJourney]);
 
   const activeQuestions = [...(mode === "twins" ? twinQuestions : []), ...questions].filter(item => (mode !== "twins" || item.id !== "direction") && (!item.when || item.when(answers)));
   const q = activeQuestions[question];
@@ -173,6 +203,7 @@ export default function Home() {
   const rate = (bucket: string) => {
     const key = mode === "twins" ? [pairs[current].first.name,pairs[current].second.name].sort().join(" + ") : batch[current].name;
     setBuckets({ ...buckets, [key]: bucket });
+    if (cloudJourney) void saveCloudRating(cloudJourney.id, key, bucket).then(() => loadCloudRatings(cloudJourney.id)).then(setCloudRatings).catch(() => setCloudStatus("error"));
     const total = mode === "twins" ? pairs.length : batch.length;
     if (current < total - 1) setCurrent(current + 1); else setShowBuckets(true);
   };
@@ -203,12 +234,30 @@ export default function Home() {
     setBatch(next); setSeen([...alreadySeen, ...next.map(n => n.name)]); setCurrent(0); setAiRefined(refined); setFinding(false); setShowBuckets(false); setStep("results");
   };
   const chooseMode = (nextMode:JourneyMode) => { setMode(nextMode); setAnswers({}); setBuckets({}); setSeen([]); setQuestion(0); setCurrent(0); setStep("together"); };
-  const restart = () => { setMode("baby"); setAnswers({}); setDetails(emptyDetails); setSurname(""); setNickname("Nice to have"); setBuckets({}); setSeen([]); setPairs([]); setQuestion(0); setCurrent(0); setStep("welcome"); setShowBuckets(false); localStorage.removeItem("namekind-journey"); };
+  const sharedSnapshot = () => ({ version:2, mode, answers, details, surname, nickname, seen });
+  const beginTogether = async () => {
+    setCloudError(""); setCloudStatus("saving");
+    try {
+      const journey = await createCloudJourney(mode, sharedSnapshot());
+      setCloudJourney({id:journey.id,code:journey.code,userId:journey.userId}); setCloudStatus("saved"); setShowShare(true); setStep("questions");
+    } catch { setCloudStatus("error"); setCloudError("Shared journeys need the Supabase setup step completed. Your local journey is still safe."); setShowShare(true); }
+  };
+  const joinTogether = async () => {
+    if (joinCode.trim().length !== 6) return;
+    setCloudError(""); setCloudStatus("saving");
+    try {
+      const journey = await joinCloudJourney(joinCode);
+      const state = journey.state as Partial<JourneySave>;
+      setMode(state.mode || "baby"); setAnswers(state.answers || {}); setDetails({...emptyDetails,...(state.details || {})}); setSurname(state.surname || ""); setNickname(state.nickname || "Nice to have"); setSeen(state.seen || []);
+      setCloudJourney({id:journey.id,code:journey.code,userId:journey.userId}); setCloudStatus("saved"); setShowShare(false); setStep("questions");
+    } catch { setCloudStatus("error"); setCloudError("We couldn’t find that journey. Check the six-character code and try again."); }
+  };
+  const restart = () => { setMode("baby"); setAnswers({}); setDetails(emptyDetails); setSurname(""); setNickname("Nice to have"); setBuckets({}); setSeen([]); setPairs([]); setCloudJourney(null); setCloudRatings([]); setCloudStatus("local"); setQuestion(0); setCurrent(0); setStep("welcome"); setShowBuckets(false); localStorage.removeItem("namekind-journey"); localStorage.removeItem("namekind-cloud-journey"); };
 
   return <main>
     <header className="site-header">
       <button className="brand" onClick={() => setStep("welcome")} aria-label="Namekind home"><Mark /><span>namekind</span></button>
-      <nav aria-label="Primary navigation"><button onClick={() => setShowBuckets(true)}>Your shortlist <span className="count">{Object.values(buckets).filter(v => v !== "pass").length}</span></button><button className="save">Save your journey</button></nav>
+      <nav aria-label="Primary navigation"><button onClick={() => setShowBuckets(true)}>Your shortlist <span className="count">{Object.values(buckets).filter(v => v !== "pass").length}</span></button><button className="save" onClick={() => setShowShare(true)}>{cloudJourney ? cloudStatus === "saving" ? "Saving…" : "Journey saved" : "Save your journey"}</button></nav>
     </header>
 
     {step === "welcome" && <section className="welcome page-enter">
@@ -239,9 +288,9 @@ export default function Home() {
       <p className="sub">You can always invite someone later. Your {mode === "twins" ? "twin-name" : mode === "sibling" ? "sibling-name" : "baby-name"} path is ready.</p>
       <div className="journey-grid">
         <button className="journey-card" onClick={() => setStep("questions")}><span className="card-symbol">♡</span><strong>Exploring on my own</strong><small>Start discovering names right away</small><b>Continue →</b></button>
-        <button className="journey-card" onClick={() => setStep("questions")}><span className="card-symbol">♧</span><strong>Naming together</strong><small>Create a private journey for two</small><b>Start together →</b></button>
+        <button className="journey-card" onClick={beginTogether}><span className="card-symbol">♧</span><strong>Naming together</strong><small>Create a private journey for two</small><b>Start together →</b></button>
       </div>
-      <button className="code-link" onClick={() => setStep("questions")}>Already have a journey code? <u>Join here</u></button>
+      <button className="code-link" onClick={() => {setCloudError("");setShowShare(true)}}>Already have a journey code? <u>Join here</u></button>
     </section>}
 
     {step === "questions" && <section className="question-shell page-enter">
@@ -298,9 +347,14 @@ export default function Home() {
       <button className="quiet" onClick={() => setShowBuckets(true)}>Review our twin pairs</button>
     </section>}
 
-    {showBuckets && <div className="modal-wrap page-enter"><section className="shortlist"><button className="modal-close" onClick={() => setShowBuckets(false)}>×</button><p className="eyebrow">Your shortlist</p><h2>The names taking shape.</h2><p className="sub">Everything stays on this device unless you choose to save.</p>
-      <div className="bucket-grid">{[["love","Loved","The clear favorites"],["maybe","Maybe","Worth another look"],["pass","Passed","Not quite right"]].map(([key,label,desc]) => <div className="bucket" key={key}><div><span>{label}</span><small>{desc}</small></div>{Object.entries(buckets).filter(([,v]) => v === key).length ? Object.entries(buckets).filter(([,v]) => v === key).map(([name]) => <button key={name}>{name}<span>•••</span></button>) : <p>No names here yet</p>}</div>)}</div>
+    {showBuckets && <div className="modal-wrap page-enter"><section className="shortlist"><button className="modal-close" onClick={() => setShowBuckets(false)} aria-label="Close shortlist">×</button><p className="eyebrow">Your shortlist</p><h2>The names taking shape.</h2><p className="sub">{cloudJourney ? `Shared journey ${cloudJourney.code} · Partner ratings update automatically.` : "Saved privately on this device."}</p>
+      <div className="bucket-grid">{[["love","Loved","The clear favorites"],["maybe","Maybe","Worth another look"],["pass","Passed","Not quite right"]].map(([key,label,desc]) => <div className="bucket" key={key}><div><span>{label}</span><small>{desc}</small></div>{Object.entries(buckets).filter(([,v]) => v === key).length ? Object.entries(buckets).filter(([,v]) => v === key).map(([name]) => { const partner = cloudRatings.find(r => r.item_key === name && r.user_id !== cloudJourney?.userId); return <button key={name}>{name}{partner ? <span className={`partner-${partner.rating}`}>Partner: {partner.rating}</span> : <span>•••</span>}</button>}) : <p>No names here yet</p>}</div>)}</div>
       <div className="shortlist-actions"><button className="quiet" onClick={restart}>Start over</button><button className="primary small" disabled={finding} onClick={() => loadNext(false)}>{finding ? "Learning your taste…" : "Explore five new names"} {!finding && <span>→</span>}</button></div>
+    </section></div>}
+
+    {showShare && <div className="modal-wrap page-enter"><section className="share-card" role="dialog" aria-modal="true" aria-labelledby="share-title"><button className="modal-close" onClick={() => setShowShare(false)} aria-label="Close shared journey">×</button>
+      {cloudJourney ? <><p className="eyebrow">Your private journey</p><h2 id="share-title">Invite your naming partner.</h2><p className="sub">Share this code. They can enter it from the “Join here” link on Namekind.</p><div className="journey-code" aria-label={`Journey code ${cloudJourney.code}`}>{cloudJourney.code}</div><button className="primary small" onClick={() => navigator.clipboard?.writeText(cloudJourney.code)}>Copy code</button><p className="fine">No account is required. This browser remains privately connected to the journey.</p></> : <><p className="eyebrow">Save or join</p><h2 id="share-title">Continue together.</h2><p className="sub">Create a cloud journey from the “Naming together” option, or enter a code someone shared with you.</p><label className="join-field"><span>Six-character journey code</span><input value={joinCode} onChange={e => setJoinCode(e.target.value.toUpperCase().replace(/[^A-Z2-9]/g, "").slice(0,6))} placeholder="ABC234" autoComplete="off" /></label><button className="primary small" disabled={joinCode.length !== 6 || cloudStatus === "saving"} onClick={joinTogether}>{cloudStatus === "saving" ? "Joining…" : "Join journey"}</button></>}
+      {cloudError && <p className="cloud-error" role="alert">{cloudError}</p>}
     </section></div>}
 
     <footer className="home-footer"><div className="brand"><Mark /><span>namekind</span></div><p>Names chosen with meaning, not just momentum.</p><nav aria-label="Legal and information"><Link href="/baby-names">Popular names</Link><Link href="/guides/choosing-a-baby-name">Guide</Link><Link href="/about">About</Link><Link href="/privacy">Privacy</Link><Link href="/terms">Terms</Link><Link href="/cookies">Cookies</Link><Link href="/contact">Contact</Link></nav></footer>
