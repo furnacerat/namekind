@@ -216,7 +216,7 @@ export default function Home() {
     let nextPairs = mode === "twins" ? twinPairs(candidates, answers, alreadySeen).slice(0,5) : [];
     let refined = false;
     try {
-      const response = await fetch("/api/refine", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({mode,answers,buckets,nickname,surname,seen:alreadySeen,details,candidates:candidates.map(n => ({name:n.name,origin:n.origin,meaning:n.meaning,tags:n.tags}))})});
+      const response = await fetch("/api/refine", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({mode,answers,buckets,nickname,surname,seen:alreadySeen,details})});
       if (response.ok) {
         const data = await response.json() as { items?:NameItem[]; pairs?:TwinPair[] };
         if (mode === "twins" && (data.pairs?.length || 0) >= 5) { nextPairs = data.pairs!.slice(0,5); refined = true; }
