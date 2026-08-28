@@ -81,7 +81,7 @@ function rankedPool(answers: AnswerMap, details: Details, buckets: Record<string
     return { item, score };
   }).sort((a,b) => b.score - a.score);
   const diverse: NameItem[] = [];
-  while (scored.length && diverse.length < 15) {
+  while (scored.length && diverse.length < (mode === "twins" ? 50 : 30)) {
     scored.sort((a,b) => {
       const penalty = (x: NameItem) => diverse.some(d => d.origin === x.origin) ? 2.2 : 0;
       return (b.score - penalty(b.item)) - (a.score - penalty(a.item));
@@ -216,7 +216,11 @@ export default function Home() {
     let nextPairs = mode === "twins" ? twinPairs(candidates, answers, alreadySeen).slice(0,5) : [];
     let refined = false;
     try {
-      const response = await fetch("/api/refine", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({mode,answers,buckets,nickname,surname,seen:alreadySeen,details})});
+      const controller = new AbortController();
+      const timeout = window.setTimeout(() => controller.abort(), 45_000);
+      let response:Response;
+      try { response = await fetch("/api/refine", {method:"POST",headers:{"Content-Type":"application/json"},signal:controller.signal,body:JSON.stringify({mode,answers,buckets,nickname,surname,seen:alreadySeen,details})}); }
+      finally { window.clearTimeout(timeout); }
       if (response.ok) {
         const data = await response.json() as { items?:NameItem[]; pairs?:TwinPair[] };
         if (mode === "twins" && (data.pairs?.length || 0) >= 5) { nextPairs = data.pairs!.slice(0,5); refined = true; }
@@ -352,7 +356,7 @@ export default function Home() {
     </section></div>}
 
     {showShare && <div className="modal-wrap page-enter"><section className="share-card" role="dialog" aria-modal="true" aria-labelledby="share-title"><button className="modal-close" onClick={() => setShowShare(false)} aria-label="Close shared journey">×</button>
-      {cloudJourney ? <><p className="eyebrow">Your private journey</p><h2 id="share-title">Invite your naming partner.</h2><p className="sub">Share this code. They can enter it from the “Join here” link on Namekind.</p><div className="journey-code" aria-label={`Journey code ${cloudJourney.code}`}>{cloudJourney.code}</div><button className="primary small" onClick={() => navigator.clipboard?.writeText(cloudJourney.code)}>Copy code</button><p className="fine">No account is required. This browser remains privately connected to the journey.</p></> : <><p className="eyebrow">Name together</p><h2 id="share-title">How would you like to begin?</h2><p className="sub">Start a new shared journey, or connect to one your naming partner already created.</p><div className="share-choice create-choice"><div><span className="choice-number">01</span><strong>Create a code to share</strong><small>Begin a new journey and receive your own private six-character code.</small></div><button className="primary small" disabled={cloudStatus === "saving"} onClick={beginTogether}>{cloudStatus === "saving" ? "Creating…" : "Create my code"}</button></div><div className="choice-divider"><span>or</span></div><div className="share-choice join-choice"><div><span className="choice-number">02</span><strong>Join with a code</strong><small>Enter the six-character code your naming partner shared with you.</small></div><label className="join-field"><span>Journey code</span><input value={joinCode} onChange={e => setJoinCode(e.target.value.toUpperCase().replace(/[^A-Z2-9]/g, "").slice(0,6))} placeholder="ABC234" autoComplete="off" aria-label="Six-character journey code" /></label><button className="secondary small" disabled={joinCode.length !== 6 || cloudStatus === "saving"} onClick={joinTogether}>{cloudStatus === "saving" ? "Connecting…" : "Join this journey"}</button></div></>}
+      {cloudJourney ? <><p className="eyebrow">Your private journey</p><h2 id="share-title">Invite your naming partner.</h2><p className="sub">Share this code. They can enter it from the “Join here” link on Namekind.</p><div className="journey-code" aria-label={`Journey code ${cloudJourney.code}`}>{cloudJourney.code}</div><button className="secondary small copy-code" onClick={() => navigator.clipboard?.writeText(cloudJourney.code)}>Copy code</button><button className="primary small continue-journey" onClick={() => setShowShare(false)}>Continue to questions <span>→</span></button><p className="fine">No account is required. This browser remains privately connected to the journey.</p></> : <><p className="eyebrow">Name together</p><h2 id="share-title">How would you like to begin?</h2><p className="sub">Start a new shared journey, or connect to one your naming partner already created.</p><div className="share-choice create-choice"><div><span className="choice-number">01</span><strong>Create a code to share</strong><small>Begin a new journey and receive your own private six-character code.</small></div><button className="primary small" disabled={cloudStatus === "saving"} onClick={beginTogether}>{cloudStatus === "saving" ? "Creating…" : "Create my code"}</button></div><div className="choice-divider"><span>or</span></div><div className="share-choice join-choice"><div><span className="choice-number">02</span><strong>Join with a code</strong><small>Enter the six-character code your naming partner shared with you.</small></div><label className="join-field"><span>Journey code</span><input value={joinCode} onChange={e => setJoinCode(e.target.value.toUpperCase().replace(/[^A-Z2-9]/g, "").slice(0,6))} placeholder="ABC234" autoComplete="off" aria-label="Six-character journey code" /></label><button className="secondary small" disabled={joinCode.length !== 6 || cloudStatus === "saving"} onClick={joinTogether}>{cloudStatus === "saving" ? "Connecting…" : "Join this journey"}</button></div></>}
       {cloudError && <p className="cloud-error" role="alert">{cloudError}</p>}
     </section></div>}
 

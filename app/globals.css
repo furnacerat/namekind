@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "./share-fixes.css";
 
 :root { --ink:#243c38; --cream:#f8f3e9; --paper:#fffdf8; --sage:#b9c9b8; --moss:#47645d; --peach:#eab9a2; --line:#deddd3; }
 *{box-sizing:border-box} html{scroll-behavior:smooth} body{margin:0;background:var(--cream);color:var(--ink);font-family:Arial,Helvetica,sans-serif} button,input,select{font:inherit;color:inherit} button{cursor:pointer}.page-enter{animation:enter .45s ease both}@keyframes enter{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}

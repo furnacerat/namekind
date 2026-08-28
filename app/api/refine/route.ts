@@ -105,14 +105,37 @@ You may consider ANY established name in existence, from any language, culture, 
     ? `Return only valid JSON: {"pairs":[{"first":${nameShape},"second":${nameShape}}]}. Return exactly 5 pairs.`
     : `Return only valid JSON: {"items":[${nameShape}]}. Return exactly 5 names.`;
   const prompt = `You are Namekind's expert naming engine. The questionnaire is a specification, not a suggestion. Never relax one answer to improve another. If the profile is unusually narrow, search deeper rather than broadening it.\n\n${hardRules}\n\n${outputInstruction}\n\nProfile: ${JSON.stringify(profile).slice(0,11000)}`;
+  const nameSchema = {
+    type:"object",
+    additionalProperties:false,
+    required:["name","pronunciation","origin","meaning","nicknames","why","tags"],
+    properties:{
+      name:{type:"string"}, pronunciation:{type:"string"}, origin:{type:"string"}, meaning:{type:"string"}, why:{type:"string"},
+      nicknames:{type:"array",items:{type:"string"},maxItems:4},
+      tags:{type:"array",items:{type:"string"},maxItems:12},
+    },
+  };
+  const outputSchema = mode === "twins"
+    ? {type:"object",additionalProperties:false,required:["pairs"],properties:{pairs:{type:"array",minItems:5,maxItems:5,items:{type:"object",additionalProperties:false,required:["first","second"],properties:{first:nameSchema,second:nameSchema}}}}}
+    : {type:"object",additionalProperties:false,required:["items"],properties:{items:{type:"array",minItems:5,maxItems:5,items:nameSchema}}};
 
   try {
     const upstream = await fetch("https://api.openai.com/v1/responses", {
       method:"POST",
       headers:{Authorization:`Bearer ${apiKey}`,"Content-Type":"application/json"},
-      body:JSON.stringify({model:"gpt-5-mini",input:prompt,max_output_tokens:mode === "twins" ? 2400 : 1400}),
+      body:JSON.stringify({
+        model:"gpt-5-mini",
+        input:prompt,
+        reasoning:{effort:"minimal"},
+        max_output_tokens:mode === "twins" ? 6000 : 3200,
+        text:{format:{type:"json_schema",name:mode === "twins" ? "twin_name_pairs" : "name_suggestions",strict:true,schema:outputSchema}},
+      }),
     });
-    if (!upstream.ok) return json({error:"AI refinement unavailable"},502);
+    if (!upstream.ok) {
+      const upstreamError = await upstream.text();
+      console.error("[namekind/refine] OpenAI request failed", { status:upstream.status, error:upstreamError.slice(0,500) });
+      return json({error:"AI refinement unavailable"},502);
+    }
     const result = await upstream.json() as {output_text?:string;output?:Array<{content?:Array<{text?:string}>}>};
     const text = result.output_text || result.output?.flatMap(output => output.content || []).map(content => content.text || "").join("") || "";
     const parsed = JSON.parse(text.replace(/^```json\s*|\s*```$/g,"")) as {items?:unknown[];pairs?:unknown[]};
@@ -149,7 +172,8 @@ You may consider ANY established name in existence, from any language, culture, 
     }).slice(0,5);
     if (pairs.length !== 5) throw new Error("Invalid pairs");
     return json({pairs});
-  } catch {
+  } catch (error) {
+    console.error("[namekind/refine] response rejected", { error:error instanceof Error ? error.message : String(error) });
     return json({error:"AI refinement unavailable"},502);
   }
 }
