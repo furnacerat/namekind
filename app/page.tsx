@@ -239,7 +239,7 @@ export default function Home() {
     try {
       const journey = await createCloudJourney(mode, sharedSnapshot());
       setCloudJourney({id:journey.id,code:journey.code,userId:journey.userId}); setCloudStatus("saved"); setShowShare(true); setStep("questions");
-    } catch { setCloudStatus("error"); setCloudError("Shared journeys need the Supabase setup step completed. Your local journey is still safe."); setShowShare(true); }
+    } catch (error) { const code = typeof error === "object" && error && "code" in error ? String(error.code) : ""; setCloudStatus("error"); setCloudError(code === "42883" ? "Shared journeys need one small database update before codes can be created. Your local journey is still safe." : "We couldn’t create the shared journey right now. Your local journey is still safe; please try again shortly."); setShowShare(true); }
   };
   const joinTogether = async () => {
     if (joinCode.trim().length !== 6) return;

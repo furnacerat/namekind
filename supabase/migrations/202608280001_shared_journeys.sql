@@ -80,7 +80,7 @@ declare
 begin
   if auth.uid() is null then raise exception 'Authentication required'; end if;
   loop
-    new_code := upper(substr(encode(gen_random_bytes(6), 'base64'), 1, 6));
+    new_code := upper(substr(encode(extensions.gen_random_bytes(6), 'base64'), 1, 6));
     new_code := translate(new_code, '+/01', 'ABXY');
     exit when not exists (select 1 from public.namekind_journeys where code = new_code);
   end loop;

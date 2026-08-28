@@ -19,7 +19,10 @@ async function authenticatedClient() {
 export async function createCloudJourney(mode:string, state:Record<string, unknown>):Promise<CloudJourney> {
   const { client, user } = await authenticatedClient();
   const { data, error } = await client.rpc("create_namekind_journey", { p_mode:mode, p_state:state }).single();
-  if (error) throw error;
+  if (error) {
+    console.error("[namekind/shared-journey] create failed", { code:error.code, message:error.message });
+    throw error;
+  }
   const row = data as {journey_id:string;journey_code:string;journey_state:Record<string,unknown>};
   return { id:row.journey_id, code:row.journey_code, state:row.journey_state, userId:user.id };
 }
