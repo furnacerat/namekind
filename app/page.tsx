@@ -29,8 +29,8 @@ const questions: Question[] = [
 
 const twinQuestions: Question[] = [
   { id:"twinDirection", eyebrow:"Two little people", title:"What kind of twin pairing are you naming?", helper:"This sets the broadest direction for each pair.", max:1, options:["Two girls", "Two boys", "A girl and a boy", "Gender-neutral pair", "Show us every combination"] },
-  { id:"twinConnection", eyebrow:"Together, not identical", title:"How connected should their names feel?", helper:"The best twin names belong together while leaving room for two identities.", max:1, options:["Subtly coordinated", "Clearly connected", "Distinct but balanced", "Surprise us"] },
-  { id:"twinAvoid", eyebrow:"Their own identities", title:"What should we avoid in a twin pair?", helper:"Choose any patterns that would feel too matched.", max:3, options:["Same first initial", "Rhyming endings", "Very different popularity", "Different cultural roots", "Nothing in particular"] },
+  { id:"twinConnection", eyebrow:"Together, not identical", title:"How should their names connect?", helper:"This choice becomes a firm rule for every pair we show you.", max:1, options:["Same first initial", "Different first initials", "Subtly coordinated", "Clearly connected", "Distinct but balanced", "Surprise us"] },
+  { id:"twinAvoid", eyebrow:"Their own identities", title:"What should we avoid in a twin pair?", helper:"These are firm exclusions, not gentle preferences.", max:3, options:["Rhyming endings", "Very different popularity", "Different cultural roots", "Nothing in particular"] },
 ];
 
 function Mark() { return <span className="mark" aria-hidden="true">n</span>; }
@@ -106,7 +106,8 @@ function twinPairs(pool:NameItem[], answers:AnswerMap, seen:string[]):TwinPair[]
   const candidates:{pair:TwinPair;score:number}[] = [];
   pool.forEach((first, index) => pool.slice(index + 1).forEach(second => {
     if (!genderOk(first, second) || seen.includes(pairKey(first,second))) return;
-    if (avoid.includes("Same first initial") && first.name[0] === second.name[0]) return;
+    if (connection === "Same first initial" && first.name[0].toLowerCase() !== second.name[0].toLowerCase()) return;
+    if (connection === "Different first initials" && first.name[0].toLowerCase() === second.name[0].toLowerCase()) return;
     if (avoid.includes("Rhyming endings") && first.name.slice(-2).toLowerCase() === second.name.slice(-2).toLowerCase()) return;
     if (avoid.includes("Different cultural roots") && first.origin !== second.origin) return;
     const overlap = first.tags.filter(tag => second.tags.includes(tag)).length;
@@ -211,24 +212,22 @@ export default function Home() {
     setFinding(true);
     const alreadySeen = first ? [] : seen;
     const candidates = rankedPool(answers, details, buckets, mode === "twins" ? [] : alreadySeen, mode);
+    let next = candidates.slice(0,5);
+    let nextPairs = mode === "twins" ? twinPairs(candidates, answers, alreadySeen).slice(0,5) : [];
+    let refined = false;
+    try {
+      const response = await fetch("/api/refine", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({mode,answers,buckets,nickname,surname,seen:alreadySeen,details,candidates:candidates.map(n => ({name:n.name,origin:n.origin,meaning:n.meaning,tags:n.tags}))})});
+      if (response.ok) {
+        const data = await response.json() as { items?:NameItem[]; pairs?:TwinPair[] };
+        if (mode === "twins" && (data.pairs?.length || 0) >= 5) { nextPairs = data.pairs!.slice(0,5); refined = true; }
+        if (mode !== "twins" && (data.items?.length || 0) >= 5) { next = data.items!.slice(0,5); refined = true; }
+      }
+    } catch { /* the curated local engine remains available */ }
     if (mode === "twins") {
-      const nextPairs = twinPairs(candidates, answers, alreadySeen).slice(0,5);
       setPairs(nextPairs);
       setSeen([...alreadySeen, ...nextPairs.map(pair => [pair.first.name,pair.second.name].sort().join(" + "))]);
-      setCurrent(0); setAiRefined(false); setFinding(false); setShowBuckets(false); setStep("results");
+      setCurrent(0); setAiRefined(refined); setFinding(false); setShowBuckets(false); setStep("results");
       return;
-    }
-    let next = candidates.slice(0,5);
-    let refined = false;
-    if (candidates.length) {
-      try {
-        const response = await fetch("/api/refine", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({answers,buckets,nickname,surname,details:{likedNames:details.likedNames,dislikedNames:details.dislikedNames,honorStyle:details.honorStyle,preferredInitials:details.preferredInitials,avoidedLetters:details.avoidedLetters,familyInitial:details.familyName.trim().charAt(0),siblingNameProvided:Boolean(details.siblingNames.trim())},candidates:candidates.map(n => ({name:n.name,origin:n.origin,meaning:n.meaning,tags:n.tags}))})});
-        if (response.ok) {
-          const data = await response.json() as { names?: string[] };
-          const ordered = (data.names || []).map(name => candidates.find(n => n.name === name)).filter(Boolean) as NameItem[];
-          if (ordered.length >= 5) { next = ordered.slice(0,5); refined = true; }
-        }
-      } catch { /* the local ranking is always ready */ }
     }
     if (!next.length) next = rankedPool(answers, details, buckets, [], mode).filter(n => !buckets[n.name]).slice(0,5);
     setBatch(next); setSeen([...alreadySeen, ...next.map(n => n.name)]); setCurrent(0); setAiRefined(refined); setFinding(false); setShowBuckets(false); setStep("results");
