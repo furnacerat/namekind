@@ -146,13 +146,15 @@ export default function Home() {
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
+      let restoredDetails = emptyDetails;
       const saved = localStorage.getItem("namekind-journey");
       if (saved) {
         try {
           const journey = JSON.parse(saved) as Partial<JourneySave>;
           setMode(journey.mode || "baby");
           setAnswers(journey.answers || {});
-          setDetails({...emptyDetails,...(journey.details || {})});
+          restoredDetails = {...emptyDetails,...(journey.details || {})};
+          setDetails(restoredDetails);
           setSurname(journey.surname || "");
           setNickname(journey.nickname || "Nice to have");
           setBuckets(journey.buckets || {});
@@ -162,6 +164,14 @@ export default function Home() {
       const cloud = localStorage.getItem("namekind-cloud-journey");
       if (cloud) {
         try { setCloudJourney(JSON.parse(cloud)); } catch { localStorage.removeItem("namekind-cloud-journey"); }
+      }
+      const inspired = new URLSearchParams(window.location.search).get("inspired")?.trim();
+      if (inspired) {
+        const liked = [inspired, ...list(restoredDetails.likedNames)].filter((value, index, values) => values.findIndex((item) => item.toLowerCase() === value.toLowerCase()) === index).slice(0, 6);
+        setDetails({...restoredDetails, likedNames:liked.join(", ")});
+        setMode("baby");
+        setStep("purpose");
+        window.history.replaceState({}, "", "/");
       }
       setHydrated(true);
     }, 0);

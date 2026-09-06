@@ -28,14 +28,44 @@ export const popularGirls = makeNames(girlNames, "girl");
 export const popularNames = [...popularBoys, ...popularGirls];
 export const popularNameBySlug = new Map(popularNames.map((item) => [item.slug, item]));
 
+function originWords(origin: string) {
+  return new Set(origin.toLowerCase().split(/[^a-z]+/).filter((word) => word.length > 3 && !["form", "roots", "usage", "english"].includes(word)));
+}
+
+function compatibilityScore(source: PopularName, candidate: PopularName) {
+  const sourceOrigins = originWords(source.origin);
+  const sharedOrigin = [...originWords(candidate.origin)].some((word) => sourceOrigins.has(word));
+  const lengthDifference = Math.abs(source.name.length - candidate.name.length);
+  const rankDifference = Math.abs(source.rank - candidate.rank);
+  let score = sharedOrigin ? 7 : 0;
+  score += Math.max(0, 4 - lengthDifference);
+  score += Math.max(0, 4 - rankDifference / 20);
+  if (source.name[0] !== candidate.name[0]) score += 1.5;
+  if (source.name.slice(-1) !== candidate.name.slice(-1)) score += 1;
+  return score;
+}
+
+function bestMatches(item: PopularName, source: PopularName[], count: number) {
+  return source
+    .filter((candidate) => candidate.slug !== item.slug)
+    .map((candidate) => ({ candidate, score: compatibilityScore(item, candidate) }))
+    .sort((a, b) => b.score - a.score || a.candidate.rank - b.candidate.rank)
+    .slice(0, count)
+    .map(({ candidate }) => candidate);
+}
+
 export function siblingSuggestions(item: PopularName) {
   const same = item.sex === "boy" ? popularBoys : popularGirls;
   const other = item.sex === "boy" ? popularGirls : popularBoys;
-  const offsets = [11, 27, 43];
   return {
-    same: offsets.map((offset) => same[(item.rank - 1 + offset) % same.length].name),
-    other: offsets.map((offset) => other[(item.rank - 1 + offset + 5) % other.length].name),
+    same: bestMatches(item, same, 4).map(({ name }) => name),
+    other: bestMatches(item, other, 4).map(({ name }) => name),
   };
+}
+
+export function relatedNameSuggestions(item: PopularName, count = 6) {
+  const same = item.sex === "boy" ? popularBoys : popularGirls;
+  return bestMatches(item, same, count);
 }
 
 export function middleSuggestions(item: PopularName) {
