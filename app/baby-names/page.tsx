@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { InfoLayout } from "../info-layout";
 import { popularBoys, popularGirls } from "../popular-names-data";
+import { babyCategories } from "../name-categories-data";
 
 export const metadata: Metadata = {
   title: "Top 200 Baby Names of 2025",
@@ -16,6 +17,7 @@ function Ranking({ title, names }: { title: string; names: typeof popularBoys })
 export default function BabyNamesPage() {
   return <InfoLayout eyebrow="The 2025 list" title="America’s 200 most popular baby names" intro="Start with the official popularity picture, then go deeper into meaning, origin, sibling combinations, middle-name rhythm, and style.">
     <div className="data-note"><strong>Source note</strong><p>Rankings reflect U.S. Social Security card applications for births in 2025. SSA tracks spellings separately. Meanings and origins are editorial reference material and may vary among languages, families, and scholars.</p><a href="https://www.ssa.gov/oact/babynames/" target="_blank" rel="noreferrer">View the official SSA resource ↗</a></div>
+    <section className="category-index"><div className="ranking-heading"><h2>Explore by style</h2><span>Curated guides</span></div><div className="category-card-grid">{babyCategories.map(item=><Link key={item.slug} href={`/baby-names/categories/${item.slug}`}><span>{item.eyebrow}</span><strong>{item.title}</strong><small>{item.description}</small><b>Explore guide →</b></Link>)}</div></section>
     <div className="ranking-grid"><Ranking title="Top 100 boy names" names={popularBoys} /><Ranking title="Top 100 girl names" names={popularGirls} /></div>
   </InfoLayout>;
 }

@@ -1,0 +1,12 @@
+import type {Metadata} from "next";
+import Link from "next/link";
+import {notFound} from "next/navigation";
+import {InfoLayout} from "../../../info-layout";
+import {babyCategories,categoryByKey} from "../../../name-categories-data";
+import {popularNameBySlug} from "../../../popular-names-data";
+
+type Props={params:Promise<{slug:string}>};
+const toSlug=(name:string)=>name.toLowerCase().replace(/[^a-z0-9]+/g,"-");
+export function generateStaticParams(){return babyCategories.map(({slug})=>({slug}));}
+export async function generateMetadata({params}:Props):Promise<Metadata>{const{slug}=await params;const item=categoryByKey.get(`baby:${slug}`);return item?{title:item.title,description:item.description,alternates:{canonical:`/baby-names/categories/${slug}`}}:{};}
+export default async function BabyCategoryPage({params}:Props){const{slug}=await params;const item=categoryByKey.get(`baby:${slug}`);if(!item)notFound();const faqData={"@context":"https://schema.org","@type":"FAQPage",mainEntity:item.faq.map(entry=>({"@type":"Question",name:entry.question,acceptedAnswer:{"@type":"Answer",text:entry.answer}}))};return <InfoLayout eyebrow={item.eyebrow} title={item.title} intro={item.intro}><script type="application/ld+json" dangerouslySetInnerHTML={{__html:JSON.stringify(faqData)}}/>{item.pairs&&<section><h2>Thoughtful same-initial pairs</h2><div className="category-pairs">{item.pairs.map(([first,second])=><div key={first}><strong>{first} &amp; {second}</strong><span>Connected by an initial, separated by rhythm and ending.</span></div>)}</div></section>}<section><h2>{item.names.length} ideas to explore</h2><div className="category-name-grid">{item.names.map(name=>{const match=popularNameBySlug.get(toSlug(name));return match?<Link href={`/baby-names/${match.slug}`} key={name}><strong>{name}</strong><span>{match.meaning}</span></Link>:<div key={name}><strong>{name}</strong><span>A versatile established choice</span></div>})}</div></section><section><h2>How to narrow the list</h2><ul>{item.guidance.map(tip=><li key={tip}>{tip}</li>)}</ul></section><section className="name-faq"><h2>Common questions</h2>{item.faq.map(entry=><details key={entry.question}><summary>{entry.question}</summary><p>{entry.answer}</p></details>)}</section><div className="profile-actions"><Link href="/baby-names">Browse the Top 200</Link><Link className="primary" href="/?mode=baby">Find personalized baby names <span>→</span></Link></div></InfoLayout>;}

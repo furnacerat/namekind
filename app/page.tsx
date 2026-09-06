@@ -183,8 +183,8 @@ export default function Home() {
       const params = new URLSearchParams(window.location.search);
       const inspired = params.get("inspired")?.trim();
       const requestedMode = params.get("mode");
-      if (requestedMode === "pet") {
-        setMode("pet");
+      if (requestedMode === "pet" || requestedMode === "baby") {
+        setMode(requestedMode);
         if (inspired) setDetails({...restoredDetails,likedNames:[inspired,...list(restoredDetails.likedNames)].filter((value,index,values)=>values.findIndex(item=>item.toLowerCase()===value.toLowerCase())===index).slice(0,6).join(", ")});
         setStep("together"); window.history.replaceState({},"","/"); setHydrated(true); return;
       }
@@ -300,7 +300,8 @@ export default function Home() {
       <p className="eyebrow">A more thoughtful way to choose</p>
       <h1>Find a name that<br /><em>feels like yours.</em></h1>
       <p className="lede">A few gentle questions. A world of meaningful names.<br className="desktop" /> Recommendations shaped around your story.</p>
-      <button className="primary" onClick={() => setStep("purpose")}>Find your names <span>→</span></button>
+      <div className="welcome-paths"><button className="primary" onClick={() => chooseMode("baby")}><small>For your family</small>Find a baby name <span>→</span></button><button className="welcome-pet" onClick={() => chooseMode("pet")}><small>For your companion</small>Find a pet name <span>→</span></button></div>
+      <div className="browse-paths"><Link href="/baby-names">Browse popular baby names</Link><span>·</span><Link href="/pet-names">Browse popular pet names</Link><span>·</span><button onClick={() => setStep("purpose")}>See every naming path</button></div>
       <div className="trust"><span>✦ No account needed</span><span>✦ Private by design</span><span>✦ Thoughtfully curated</span></div>
       <div className="name-cloud" aria-hidden="true"><span>Elodie</span><span>Silas</span><span>Maren</span><span>August</span><span>Noa</span></div>
     </section>}

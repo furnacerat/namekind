@@ -16,11 +16,11 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const item = popularNameBySlug.get(slug);
   if (!item) return {};
   return {
-    title: `${item.name} Name Meaning, Origin & More`,
-    description: `${item.name} means “${item.meaning}” and has ${item.origin} roots. Explore popularity, sibling names, middle names, and names with a similar feel.`,
+    title: `${item.name} Name Meaning, Origin, Popularity & More`,
+    description: `What does ${item.name} mean? ${item.name} means “${item.meaning},” has ${item.origin} roots, and ranked #${item.rank} for U.S. ${item.sex === "boy" ? "boys" : "girls"} in 2025.`,
     alternates: { canonical: `/baby-names/${item.slug}` },
-    openGraph: { title: `${item.name} Name Meaning, Origin & More`, description: `${item.name} means “${item.meaning}.” Explore its ${item.origin} roots, popularity, and thoughtful pairing ideas.`, images: [] },
-    twitter: { title: `${item.name} Name Meaning, Origin & More`, description: `${item.name} means “${item.meaning}.” Explore its origin, popularity, and pairing ideas.`, images: [] },
+    openGraph: { title: `${item.name} Name Meaning, Origin & Popularity`, description: `${item.name} means “${item.meaning}.” See its 2025 rank, ${item.origin} roots, sibling names, and pairing ideas.`, images: [] },
+    twitter: { title: `${item.name} Name Meaning, Origin & Popularity`, description: `${item.name} means “${item.meaning}.” Explore its rank, origin, and pairing ideas.`, images: [] },
   };
 }
 

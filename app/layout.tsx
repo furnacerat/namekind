@@ -20,11 +20,11 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
-  title: { default:"Namekind — Personalized Baby Name Ideas", template:"%s | Namekind" },
-  description: "Discover meaningful baby names through a thoughtful questionnaire shaped around your style, story, sound, and preferences.",
+  title: { default:"Namekind — Personalized Baby & Pet Name Ideas", template:"%s | Namekind" },
+  description: "Discover meaningful baby and pet names through thoughtful questionnaires shaped around your style, story, sound, and preferences.",
   alternates: { canonical:"/" },
-  openGraph: { type:"website", url:siteUrl, siteName:"Namekind", title:"Namekind — Personalized Baby Name Ideas", description:"A thoughtful, personalized way to discover meaningful baby names." },
-  twitter: { card:"summary", title:"Namekind — Personalized Baby Name Ideas", description:"A thoughtful, personalized way to discover meaningful baby names." },
+  openGraph: { type:"website", url:siteUrl, siteName:"Namekind", title:"Namekind — Personalized Baby & Pet Name Ideas", description:"A thoughtful, personalized way to discover meaningful baby and pet names." },
+  twitter: { card:"summary", title:"Namekind — Personalized Baby & Pet Name Ideas", description:"A thoughtful, personalized way to discover meaningful baby and pet names." },
   robots: { index:true, follow:true, googleBot:{ index:true, follow:true, "max-image-preview":"large", "max-snippet":-1, "max-video-preview":-1 } },
   icons: {
     icon: "/favicon.svg",
@@ -40,7 +40,7 @@ export default function RootLayout({
   const adsenseClient = process.env.NEXT_PUBLIC_GOOGLE_ADSENSE_CLIENT || defaultAdsenseClient;
   const structuredData = [
     { "@context":"https://schema.org", "@type":"Organization", name:"Namekind", url:siteUrl, email:"hello@hellonamekind.com", founder:{"@type":"Person",name:"Harold Foster"} },
-    { "@context":"https://schema.org", "@type":"WebSite", name:"Namekind", url:siteUrl, description:"Personalized baby name discovery shaped by meaning, sound, style, and story." },
+    { "@context":"https://schema.org", "@type":"WebSite", name:"Namekind", url:siteUrl, description:"Personalized baby and pet name discovery shaped by meaning, sound, style, and story." },
   ];
   return (
     <html lang="en">
