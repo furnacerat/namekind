@@ -3,17 +3,18 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { names, type NameItem } from "./name-data";
+import { petNameItems } from "./pet-names-data";
 import { createCloudJourney, joinCloudJourney, loadCloudRatings, saveCloudJourney, saveCloudRating, subscribeToCloudJourney, type CloudRating } from "../lib/shared-journeys";
 
 type Step = "welcome" | "purpose" | "together" | "questions" | "details" | "profile" | "results";
-type JourneyMode = "baby" | "sibling" | "twins";
+type JourneyMode = "baby" | "sibling" | "twins" | "pet";
 type AnswerMap = Record<string, string[]>;
-type Details = { likedNames:string; dislikedNames:string; familyName:string; honorStyle:string; preferredInitials:string; avoidedLetters:string; siblingNames:string };
+type Details = { likedNames:string; dislikedNames:string; familyName:string; honorStyle:string; preferredInitials:string; avoidedLetters:string; siblingNames:string; petKind:string };
 type Question = { id:string; eyebrow:string; title:string; helper:string; max:number; options:string[]; when?:(answers:AnswerMap)=>boolean };
 type TwinPair = { first:NameItem; second:NameItem };
 type JourneySave = { version:2; mode:JourneyMode; answers:AnswerMap; details:Details; surname:string; nickname:string; buckets:Record<string,string>; seen:string[] };
 type ShareView = "choose" | "existing";
-const emptyDetails: Details = { likedNames:"", dislikedNames:"", familyName:"", honorStyle:"Inspiration only", preferredInitials:"", avoidedLetters:"", siblingNames:"" };
+const emptyDetails: Details = { likedNames:"", dislikedNames:"", familyName:"", honorStyle:"Inspiration only", preferredInitials:"", avoidedLetters:"", siblingNames:"", petKind:"" };
 
 const questions: Question[] = [
   { id: "direction", eyebrow: "Let’s begin", title: "What kinds of names should we explore?", helper: "Choose the direction that feels right today.", max: 1, options: ["Girl names", "Boy names", "Gender-neutral names", "Show me everything", "We’re not sure yet"] },
@@ -34,6 +35,16 @@ const twinQuestions: Question[] = [
   { id:"twinAvoid", eyebrow:"Their own identities", title:"What should we avoid in a twin pair?", helper:"These are firm exclusions, not gentle preferences.", max:3, options:["Rhyming endings", "Very different popularity", "Different cultural roots", "Nothing in particular"] },
 ];
 
+const petQuestions: Question[] = [
+  { id:"petType", eyebrow:"Your companion", title:"Who are we naming?", helper:"Choose the closest fit. You can add a breed or kind later.", max:1, options:["A dog","A cat","Another companion","Not sure yet"] },
+  { id:"petDirection", eyebrow:"The broad direction", title:"How should the name feel?", helper:"This is about the name’s presentation—not a rule about your pet.", max:1, options:["Feminine","Masculine","Gender-neutral","Open to everything"] },
+  { id:"petPersonality", eyebrow:"Their personality", title:"Which qualities should the name capture?", helper:"Choose up to three, including the personality you expect them to grow into.", max:3, options:["Playful","Gentle","Bold & adventurous","Regal","Quirky","Calm & cuddly","Mysterious","Loyal"] },
+  { id:"petStyle", eyebrow:"Your taste", title:"Which pet-name styles feel right?", helper:"Choose up to two. We’ll only blend styles that work together.", max:2, options:["Human-style","Nature-inspired","Food-inspired","Mythology","Literary & pop culture","Classic pet name","Unusual word name"] },
+  { id:"petSound", eyebrow:"Call it aloud", title:"What kind of sound do you want?", helper:"Think about introductions, training, and calling across the house.", max:1, options:["Short & crisp","Two syllables","Longer & flowing","Soft & gentle","Bold & clear","No preference"] },
+  { id:"petFamiliarity", eyebrow:"How distinctive?", title:"How familiar should the name feel?", helper:"We’ll search as broadly as needed without ignoring this choice.", max:1, options:["Popular favorite","Familiar but not everywhere","Uncommon","Surprising","No preference"] },
+  { id:"petPractical", eyebrow:"One practical detail", title:"Should the name avoid sounding like a command?", helper:"This can help with dogs and other pets who learn spoken cues.", max:1, options:["Yes—keep it distinct","A little overlap is fine","Not important"] },
+];
+
 function Mark() { return <span className="mark" aria-hidden="true">n</span>; }
 
 const cultureOrigins: Record<string,string[]> = {
@@ -45,18 +56,20 @@ const cultureOrigins: Record<string,string[]> = {
 const list = (value:string) => value.split(",").map(x => x.trim().toLowerCase()).filter(Boolean).slice(0,6);
 
 function rankedPool(answers: AnswerMap, details: Details, buckets: Record<string,string>, seen: string[], mode:JourneyMode = "baby") {
+  const sourceNames = mode === "pet" ? petNameItems : names;
   const selected = Object.values(answers).flat();
   const direction = answers.direction?.[0];
   const liked = list(details.likedNames);
   const disliked = list(details.dislikedNames);
-  const tasteNames = names.filter(n => liked.includes(n.name.toLowerCase()));
-  const positiveTags = [...names.filter(n => buckets[n.name] === "love" || buckets[n.name] === "maybe"), ...tasteNames].flatMap(n => n.tags);
-  const negativeTags = names.filter(n => buckets[n.name] === "pass").flatMap(n => n.tags);
+  const tasteNames = sourceNames.filter(n => liked.includes(n.name.toLowerCase()));
+  const positiveTags = [...sourceNames.filter(n => buckets[n.name] === "love" || buckets[n.name] === "maybe"), ...tasteNames].flatMap(n => n.tags);
+  const negativeTags = sourceNames.filter(n => buckets[n.name] === "pass").flatMap(n => n.tags);
   const preferredInitials = details.preferredInitials.toLowerCase().replace(/[^a-z]/g, "");
   const familyInitial = details.familyName.trim().charAt(0).toLowerCase();
   const avoidedLetters = details.avoidedLetters.toLowerCase().replace(/[^a-z]/g, "");
-  const eligible = names.filter(n => {
+  const eligible = sourceNames.filter(n => {
     if (seen.includes(n.name) || disliked.includes(n.name.toLowerCase())) return false;
+    if (mode === "pet") return true;
     if (!direction || direction === "Show me everything" || direction === "We’re not sure yet") return true;
     return n.tags.includes(direction);
   });
@@ -167,7 +180,14 @@ export default function Home() {
       if (cloud) {
         try { setCloudJourney(JSON.parse(cloud)); } catch { localStorage.removeItem("namekind-cloud-journey"); }
       }
-      const inspired = new URLSearchParams(window.location.search).get("inspired")?.trim();
+      const params = new URLSearchParams(window.location.search);
+      const inspired = params.get("inspired")?.trim();
+      const requestedMode = params.get("mode");
+      if (requestedMode === "pet") {
+        setMode("pet");
+        if (inspired) setDetails({...restoredDetails,likedNames:[inspired,...list(restoredDetails.likedNames)].filter((value,index,values)=>values.findIndex(item=>item.toLowerCase()===value.toLowerCase())===index).slice(0,6).join(", ")});
+        setStep("together"); window.history.replaceState({},"","/"); setHydrated(true); return;
+      }
       if (inspired) {
         const liked = [inspired, ...list(restoredDetails.likedNames)].filter((value, index, values) => values.findIndex((item) => item.toLowerCase() === value.toLowerCase()) === index).slice(0, 6);
         setDetails({...restoredDetails, likedNames:liked.join(", ")});
@@ -205,7 +225,7 @@ export default function Home() {
     return subscribeToCloudJourney(cloudJourney.id, refresh);
   }, [cloudJourney]);
 
-  const activeQuestions = [...(mode === "twins" ? twinQuestions : []), ...questions].filter(item => (mode !== "twins" || item.id !== "direction") && (!item.when || item.when(answers)));
+  const activeQuestions = (mode === "pet" ? petQuestions : [...(mode === "twins" ? twinQuestions : []), ...questions]).filter(item => (mode !== "twins" || item.id !== "direction") && (!item.when || item.when(answers)));
   const q = activeQuestions[question];
   const selected = answers[q?.id] || [];
   const toggle = (option: string) => {
@@ -293,14 +313,14 @@ export default function Home() {
         <button className="purpose-card" onClick={() => chooseMode("baby")}><span className="card-symbol">♡</span><strong>A baby</strong><small>Discover a first name that feels like yours</small><b>Begin →</b></button>
         <button className="purpose-card" onClick={() => chooseMode("sibling")}><span className="card-symbol">⌁</span><strong>A sibling</strong><small>Find a name that belongs beautifully with your family</small><b>Find a match →</b></button>
         <button className="purpose-card featured" onClick={() => chooseMode("twins")}><span className="new-pill">New</span><span className="card-symbol">∞</span><strong>Twins</strong><small>Explore balanced pairs with two distinct identities</small><b>Find a pair →</b></button>
-        <div className="purpose-card coming"><span className="new-pill">Coming next</span><span className="card-symbol">✦</span><strong>A pet</strong><small>A playful naming journey for every kind of companion</small><b>In development</b></div>
+        <button className="purpose-card featured" onClick={() => chooseMode("pet")}><span className="new-pill">New</span><span className="card-symbol">✦</span><strong>A pet</strong><small>A playful naming journey for every kind of companion</small><b>Find their name →</b></button>
       </div>
     </section>}
 
     {step === "together" && <section className="center-card page-enter">
       <button className="back" onClick={() => setStep("purpose")}>← Back</button>
       <p className="eyebrow">Your naming journey</p><h2>Are you naming together<br />or exploring on your own?</h2>
-      <p className="sub">You can always invite someone later. Your {mode === "twins" ? "twin-name" : mode === "sibling" ? "sibling-name" : "baby-name"} path is ready.</p>
+      <p className="sub">You can always invite someone later. Your {mode === "twins" ? "twin-name" : mode === "sibling" ? "sibling-name" : mode === "pet" ? "pet-name" : "baby-name"} path is ready.</p>
       <div className="journey-grid">
         <button className="journey-card" onClick={() => setStep("questions")}><span className="card-symbol">♡</span><strong>Exploring on my own</strong><small>Start discovering names right away</small><b>Continue →</b></button>
         <button className="journey-card" onClick={() => { setCloudError(""); setJoinCode(""); setShareView("choose"); setShowShare(true); }}><span className="card-symbol">♧</span><strong>Naming together</strong><small>Create a private journey for two</small><b>Choose how →</b></button>
@@ -322,28 +342,27 @@ export default function Home() {
       <div className="detail-grid">
         <label><span>Names you already like</span><small>Up to six, separated by commas</small><input value={details.likedNames} onChange={e => setDetails({...details,likedNames:e.target.value})} placeholder="Clara, Rowan, Mateo" /></label>
         <label><span>Names you know aren’t right</span><small>We’ll keep them out of your results</small><input value={details.dislikedNames} onChange={e => setDetails({...details,dislikedNames:e.target.value})} placeholder="Names to avoid" /></label>
-        <label><span>A family name to honor</span><small>Optional and kept with this journey</small><input value={details.familyName} onChange={e => setDetails({...details,familyName:e.target.value})} placeholder="First name or family name" /></label>
-        <label><span>How should we honor it?</span><small>Choose the kind of connection</small><select value={details.honorStyle} onChange={e => setDetails({...details,honorStyle:e.target.value})}><option>Inspiration only</option><option>Same initial</option><option>Use it directly</option><option>Preserve the meaning</option><option>Find variations</option></select></label>
+        {mode === "pet" ? <><label><span>Breed, species, or kind</span><small>Optional—use whatever description fits</small><input value={details.petKind} onChange={e => setDetails({...details,petKind:e.target.value})} placeholder="Golden retriever, tabby cat, rabbit…" /></label><label><span>Names already used at home</span><small>We’ll avoid names that sound too similar</small><input value={details.siblingNames} onChange={e => setDetails({...details,siblingNames:e.target.value})} placeholder="People or pets in the household" /></label></> : <><label><span>A family name to honor</span><small>Optional and kept with this journey</small><input value={details.familyName} onChange={e => setDetails({...details,familyName:e.target.value})} placeholder="First name or family name" /></label><label><span>How should we honor it?</span><small>Choose the kind of connection</small><select value={details.honorStyle} onChange={e => setDetails({...details,honorStyle:e.target.value})}><option>Inspiration only</option><option>Same initial</option><option>Use it directly</option><option>Preserve the meaning</option><option>Find variations</option></select></label></>}
         <label><span>Initials you’d enjoy</span><small>Letters only, such as A, M, or S</small><input value={details.preferredInitials} onChange={e => setDetails({...details,preferredInitials:e.target.value})} placeholder="A, M" /></label>
         <label><span>Letters you’d rather avoid</span><small>We’ll gently filter names containing them</small><input value={details.avoidedLetters} onChange={e => setDetails({...details,avoidedLetters:e.target.value})} placeholder="X, Z" /></label>
-        {mode !== "twins" && <label className="wide"><span>{mode === "sibling" ? "Your child’s name" : "Sibling names"}</span><small>{mode === "sibling" ? "We’ll look for a complementary style, rhythm, and personality" : "Helps you consider how the names feel together"}</small><input value={details.siblingNames} onChange={e => setDetails({...details,siblingNames:e.target.value})} placeholder={mode === "sibling" ? "Enter the sibling’s name" : "Optional"} /></label>}
+        {mode !== "twins" && mode !== "pet" && <label className="wide"><span>{mode === "sibling" ? "Your child’s name" : "Sibling names"}</span><small>{mode === "sibling" ? "We’ll look for a complementary style, rhythm, and personality" : "Helps you consider how the names feel together"}</small><input value={details.siblingNames} onChange={e => setDetails({...details,siblingNames:e.target.value})} placeholder={mode === "sibling" ? "Enter the sibling’s name" : "Optional"} /></label>}
       </div>
       <button className="primary" onClick={() => setStep("profile")}>Review my profile <span>→</span></button>
       <button className="quiet" onClick={() => setStep("profile")}>Skip these details</button>
     </section>}
 
     {step === "profile" && <section className="profile page-enter">
-      <p className="eyebrow">Your {mode === "twins" ? "twin" : mode === "sibling" ? "sibling" : "naming"} profile</p><h2>Here’s what we heard.</h2><p className="sub">One last look before we find your {mode === "twins" ? "pairs" : "names"}. Tap any answer to change it.</p>
+      <p className="eyebrow">Your {mode === "twins" ? "twin" : mode === "sibling" ? "sibling" : mode === "pet" ? "pet-naming" : "naming"} profile</p><h2>Here’s what we heard.</h2><p className="sub">One last look before we find your {mode === "twins" ? "pairs" : mode === "pet" ? "pet names" : "names"}. Tap any answer to change it.</p>
       <div className="profile-grid">{activeQuestions.map((item, i) => <button key={item.id} onClick={() => {setQuestion(i); setStep("questions")}}><small>{item.title.replace("?", "")}</small><strong>{(answers[item.id] || ["Open to anything"]).join(" · ")}</strong><span>Edit</span></button>)}</div>
-      <div className="extras"><label><span>Optional surname</span><input value={surname} onChange={e => setSurname(e.target.value)} placeholder="Helps us hear the full name" /></label><label><span>Nickname potential</span><select value={nickname} onChange={e => setNickname(e.target.value)}><option>Very important</option><option>Nice to have</option><option>Prefer no obvious nickname</option><option>No preference</option></select></label></div>
-      <button className="primary" disabled={finding} onClick={() => loadNext(true)}>{finding ? "Finding thoughtful matches…" : mode === "twins" ? "Find our twin pairs" : mode === "sibling" ? "Find sibling matches" : "Find my names"} {!finding && <span>→</span>}</button>
+      <div className="extras">{mode !== "pet" && <label><span>Optional surname</span><input value={surname} onChange={e => setSurname(e.target.value)} placeholder="Helps us hear the full name" /></label>}<label><span>Nickname potential</span><select value={nickname} onChange={e => setNickname(e.target.value)}><option>Very important</option><option>Nice to have</option><option>Prefer no obvious nickname</option><option>No preference</option></select></label></div>
+      <button className="primary" disabled={finding} onClick={() => loadNext(true)}>{finding ? "Finding thoughtful matches…" : mode === "twins" ? "Find our twin pairs" : mode === "sibling" ? "Find sibling matches" : mode === "pet" ? "Find pet names" : "Find my names"} {!finding && <span>→</span>}</button>
       <p className="fine">We use your answers to do the heavy lifting before any AI refinement.</p>
     </section>}
 
     {step === "results" && !showBuckets && mode !== "twins" && <section className="results page-enter">
       <div className="results-top"><div><p className="eyebrow">{aiRefined ? "AI-refined for you" : seen.length > 5 ? "Learning your taste" : "Your first five"}</p><h2>Meet {batch[current].name}.</h2></div><span>{current + 1} of {batch.length}</span></div>
       <article className="name-card">
-        <div className="name-main"><div className="monogram">{batch[current].name[0]}</div><div><h3>{batch[current].name}{surname && <small> {surname}</small>}</h3><p>{batch[current].pronunciation} <i /> {batch[current].origin}</p></div></div>
+        <div className="name-main"><div className="monogram">{batch[current].name[0]}</div><div><h3>{batch[current].name}{surname && mode !== "pet" && <small> {surname}</small>}</h3><p>{batch[current].pronunciation} <i /> {batch[current].origin}</p></div></div>
         <div className="meaning"><span>Meaning</span><strong>“{batch[current].meaning}”</strong></div>
         <p className="why">{batch[current].why}</p>
         <div className="nickname-row"><span>Nickname possibilities</span>{batch[current].nicknames.map(n => <b key={n}>{n}</b>)}</div>
@@ -372,6 +391,6 @@ export default function Home() {
       {cloudError && <p className="cloud-error" role="alert">{cloudError}</p>}
     </section></div>}
 
-    <footer className="home-footer"><div className="brand"><Mark /><span>namekind</span></div><p>Names chosen with meaning, not just momentum.</p><nav aria-label="Legal and information"><Link href="/baby-names">Popular names</Link><Link href="/guides/choosing-a-baby-name">Guide</Link><Link href="/about">About</Link><Link href="/privacy">Privacy</Link><Link href="/terms">Terms</Link><Link href="/cookies">Cookies</Link><Link href="/contact">Contact</Link></nav></footer>
+    <footer className="home-footer"><div className="brand"><Mark /><span>namekind</span></div><p>Names chosen with meaning, not just momentum.</p><nav aria-label="Legal and information"><Link href="/baby-names">Baby names</Link><Link href="/pet-names">Pet names</Link><Link href="/guides/choosing-a-baby-name">Guide</Link><Link href="/about">About</Link><Link href="/privacy">Privacy</Link><Link href="/terms">Terms</Link><Link href="/cookies">Cookies</Link><Link href="/contact">Contact</Link></nav></footer>
   </main>;
 }
