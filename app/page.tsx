@@ -12,6 +12,7 @@ type Details = { likedNames:string; dislikedNames:string; familyName:string; hon
 type Question = { id:string; eyebrow:string; title:string; helper:string; max:number; options:string[]; when?:(answers:AnswerMap)=>boolean };
 type TwinPair = { first:NameItem; second:NameItem };
 type JourneySave = { version:2; mode:JourneyMode; answers:AnswerMap; details:Details; surname:string; nickname:string; buckets:Record<string,string>; seen:string[] };
+type ShareView = "choose" | "existing";
 const emptyDetails: Details = { likedNames:"", dislikedNames:"", familyName:"", honorStyle:"Inspiration only", preferredInitials:"", avoidedLetters:"", siblingNames:"" };
 
 const questions: Question[] = [
@@ -141,6 +142,7 @@ export default function Home() {
   const [cloudRatings, setCloudRatings] = useState<CloudRating[]>([]);
   const [cloudStatus, setCloudStatus] = useState<"local"|"saving"|"saved"|"error">("local");
   const [showShare, setShowShare] = useState(false);
+  const [shareView, setShareView] = useState<ShareView>("choose");
   const [joinCode, setJoinCode] = useState("");
   const [cloudError, setCloudError] = useState("");
 
@@ -252,7 +254,7 @@ export default function Home() {
     setCloudError(""); setCloudStatus("saving");
     try {
       const journey = await createCloudJourney(mode, sharedSnapshot());
-      setCloudJourney({id:journey.id,code:journey.code,userId:journey.userId}); setCloudStatus("saved"); setShowShare(true); setStep("questions");
+      setCloudJourney({id:journey.id,code:journey.code,userId:journey.userId}); setCloudStatus("saved"); setShareView("existing"); setShowShare(true); setQuestion(0); setStep("questions");
     } catch (error) { const code = typeof error === "object" && error && "code" in error ? String(error.code) : ""; setCloudStatus("error"); setCloudError(code === "42883" ? "Shared journeys need one small database update before codes can be created. Your local journey is still safe." : "We couldn’t create the shared journey right now. Your local journey is still safe; please try again shortly."); setShowShare(true); }
   };
   const joinTogether = async () => {
@@ -262,7 +264,7 @@ export default function Home() {
       const journey = await joinCloudJourney(joinCode);
       const state = journey.state as Partial<JourneySave>;
       setMode(state.mode || "baby"); setAnswers(state.answers || {}); setDetails({...emptyDetails,...(state.details || {})}); setSurname(state.surname || ""); setNickname(state.nickname || "Nice to have"); setSeen(state.seen || []);
-      setCloudJourney({id:journey.id,code:journey.code,userId:journey.userId}); setCloudStatus("saved"); setShowShare(false); setStep("questions");
+      setCloudJourney({id:journey.id,code:journey.code,userId:journey.userId}); setCloudStatus("saved"); setShareView("existing"); setShowShare(false); setQuestion(0); setStep("questions");
     } catch { setCloudStatus("error"); setCloudError("We couldn’t find that journey. Check the six-character code and try again."); }
   };
   const restart = () => { setMode("baby"); setAnswers({}); setDetails(emptyDetails); setSurname(""); setNickname("Nice to have"); setBuckets({}); setSeen([]); setPairs([]); setCloudJourney(null); setCloudRatings([]); setCloudStatus("local"); setQuestion(0); setCurrent(0); setStep("welcome"); setShowBuckets(false); localStorage.removeItem("namekind-journey"); localStorage.removeItem("namekind-cloud-journey"); };
@@ -270,7 +272,7 @@ export default function Home() {
   return <main>
     <header className="site-header">
       <button className="brand" onClick={() => setStep("welcome")} aria-label="Namekind home"><Mark /><span>namekind</span></button>
-      <nav aria-label="Primary navigation"><button onClick={() => setShowBuckets(true)}>Your shortlist <span className="count">{Object.values(buckets).filter(v => v !== "pass").length}</span></button><button className="save" onClick={() => setShowShare(true)}>{cloudJourney ? cloudStatus === "saving" ? "Saving…" : "Journey saved" : "Save your journey"}</button></nav>
+      <nav aria-label="Primary navigation"><button onClick={() => setShowBuckets(true)}>Your shortlist <span className="count">{Object.values(buckets).filter(v => v !== "pass").length}</span></button><button className="save" onClick={() => { setShareView(cloudJourney ? "existing" : "choose"); setShowShare(true); }}>{cloudJourney ? cloudStatus === "saving" ? "Saving…" : "Journey saved" : "Save your journey"}</button></nav>
     </header>
 
     {step === "welcome" && <section className="welcome page-enter">
@@ -301,9 +303,9 @@ export default function Home() {
       <p className="sub">You can always invite someone later. Your {mode === "twins" ? "twin-name" : mode === "sibling" ? "sibling-name" : "baby-name"} path is ready.</p>
       <div className="journey-grid">
         <button className="journey-card" onClick={() => setStep("questions")}><span className="card-symbol">♡</span><strong>Exploring on my own</strong><small>Start discovering names right away</small><b>Continue →</b></button>
-        <button className="journey-card" onClick={() => { setCloudError(""); setJoinCode(""); setShowShare(true); }}><span className="card-symbol">♧</span><strong>Naming together</strong><small>Create a private journey for two</small><b>Choose how →</b></button>
+        <button className="journey-card" onClick={() => { setCloudError(""); setJoinCode(""); setShareView("choose"); setShowShare(true); }}><span className="card-symbol">♧</span><strong>Naming together</strong><small>Create a private journey for two</small><b>Choose how →</b></button>
       </div>
-      <button className="code-link" onClick={() => {setCloudError("");setShowShare(true)}}>Already have a journey code? <u>Join here</u></button>
+      <button className="code-link" onClick={() => {setCloudError("");setJoinCode("");setShareView("choose");setShowShare(true)}}>Already have a journey code? <u>Join here</u></button>
     </section>}
 
     {step === "questions" && <section className="question-shell page-enter">
@@ -366,7 +368,7 @@ export default function Home() {
     </section></div>}
 
     {showShare && <div className="modal-wrap page-enter"><section className="share-card" role="dialog" aria-modal="true" aria-labelledby="share-title"><button className="modal-close" onClick={() => setShowShare(false)} aria-label="Close shared journey">×</button>
-      {cloudJourney ? <><p className="eyebrow">Your private journey</p><h2 id="share-title">Invite your naming partner.</h2><p className="sub">Share this code. They can enter it from the “Join here” link on Namekind.</p><div className="journey-code" aria-label={`Journey code ${cloudJourney.code}`}>{cloudJourney.code}</div><button className="secondary small copy-code" onClick={() => navigator.clipboard?.writeText(cloudJourney.code)}>Copy code</button><button className="primary small continue-journey" onClick={() => setShowShare(false)}>Continue to questions <span>→</span></button><p className="fine">No account is required. This browser remains privately connected to the journey.</p></> : <><p className="eyebrow">Name together</p><h2 id="share-title">How would you like to begin?</h2><p className="sub">Start a new shared journey, or connect to one your naming partner already created.</p><div className="share-choice create-choice"><div><span className="choice-number">01</span><strong>Create a code to share</strong><small>Begin a new journey and receive your own private six-character code.</small></div><button className="primary small" disabled={cloudStatus === "saving"} onClick={beginTogether}>{cloudStatus === "saving" ? "Creating…" : "Create my code"}</button></div><div className="choice-divider"><span>or</span></div><div className="share-choice join-choice"><div><span className="choice-number">02</span><strong>Join with a code</strong><small>Enter the six-character code your naming partner shared with you.</small></div><label className="join-field"><span>Journey code</span><input value={joinCode} onChange={e => setJoinCode(e.target.value.toUpperCase().replace(/[^A-Z2-9]/g, "").slice(0,6))} placeholder="ABC234" autoComplete="off" aria-label="Six-character journey code" /></label><button className="secondary small" disabled={joinCode.length !== 6 || cloudStatus === "saving"} onClick={joinTogether}>{cloudStatus === "saving" ? "Connecting…" : "Join this journey"}</button></div></>}
+      {shareView === "existing" && cloudJourney ? <><p className="eyebrow">Your private journey</p><h2 id="share-title">Invite your naming partner.</h2><p className="sub">Share this code. They can enter it from the “Join here” link on Namekind.</p><div className="journey-code" aria-label={`Journey code ${cloudJourney.code}`}>{cloudJourney.code}</div><button className="secondary small copy-code" onClick={() => navigator.clipboard?.writeText(cloudJourney.code)}>Copy code</button><button className="primary small continue-journey" onClick={() => { setShowShare(false); setQuestion(0); setStep("questions"); }}>Continue to questions <span>→</span></button><button className="quiet" onClick={() => { setCloudError(""); setJoinCode(""); setShareView("choose"); }}>Start or join a different journey</button><p className="fine">No account is required. This browser remains privately connected to the journey.</p></> : <><p className="eyebrow">Name together</p><h2 id="share-title">How would you like to begin?</h2><p className="sub">Start a new shared journey, or connect to one your naming partner already created.</p><div className="share-choice create-choice"><div><span className="choice-number">01</span><strong>Create a new code to share</strong><small>Every new journey receives its own private six-character code.</small></div><button className="primary small" disabled={cloudStatus === "saving"} onClick={beginTogether}>{cloudStatus === "saving" ? "Creating…" : "Create a new code"}</button></div><div className="choice-divider"><span>or</span></div><div className="share-choice join-choice"><div><span className="choice-number">02</span><strong>Join with a code</strong><small>Enter the six-character code your naming partner shared with you.</small></div><label className="join-field"><span>Journey code</span><input value={joinCode} onChange={e => setJoinCode(e.target.value.toUpperCase().replace(/[^A-Z2-9]/g, "").slice(0,6))} placeholder="ABC234" autoComplete="off" aria-label="Six-character journey code" /></label><button className="secondary small" disabled={joinCode.length !== 6 || cloudStatus === "saving"} onClick={joinTogether}>{cloudStatus === "saving" ? "Connecting…" : "Join this journey"}</button></div></>}
       {cloudError && <p className="cloud-error" role="alert">{cloudError}</p>}
     </section></div>}
 
