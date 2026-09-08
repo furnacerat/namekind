@@ -68,9 +68,36 @@ export function relatedNameSuggestions(item: PopularName, count = 6) {
   return bestMatches(item, same, count);
 }
 
-export function middleSuggestions(item: PopularName) {
-  const short = item.name.length <= 5;
-  return item.sex === "boy"
-    ? (short ? ["Alexander", "James", "Theodore"] : ["James", "Reid", "Dean"])
-    : (short ? ["Elizabeth", "Josephine", "Victoria"] : ["Rose", "June", "Mae"]);
+export type MiddleNameGroup = {
+  label: string;
+  note: string;
+  names: string[];
+};
+
+const middleNamePools = {
+  boy: {
+    short: ["James", "Reid", "Dean", "Jude", "Luke", "Kai"],
+    classic: ["Alexander", "William", "Thomas", "Henry", "Samuel", "Benjamin"],
+    distinctive: ["Rowan", "Atlas", "Brooks", "August", "Myles", "Everett"],
+  },
+  girl: {
+    short: ["Rose", "June", "Mae", "Grace", "Claire", "Ivy"],
+    classic: ["Elizabeth", "Josephine", "Victoria", "Caroline", "Eleanor", "Charlotte"],
+    distinctive: ["Sage", "Quinn", "Wren", "Skye", "Eden", "Maeve"],
+  },
+};
+
+function rotateSuggestions(pool: string[], item: PopularName) {
+  const available = pool.filter((name) => name.toLowerCase() !== item.name.toLowerCase());
+  const offset = [...item.name].reduce((sum, character) => sum + character.charCodeAt(0), 0) % available.length;
+  return [...available.slice(offset), ...available.slice(0, offset)].slice(0, 3);
+}
+
+export function middleSuggestionGroups(item: PopularName): MiddleNameGroup[] {
+  const pools = middleNamePools[item.sex];
+  return [
+    { label:"Short & simple", note:"A crisp middle can create breathing room in the full name.", names:rotateSuggestions(pools.short, item) },
+    { label:"Classic balance", note:"A familiar traditional middle gives the pairing a grounded rhythm.", names:rotateSuggestions(pools.classic, item) },
+    { label:"Distinctive contrast", note:"A less expected middle can add character without overpowering the first name.", names:rotateSuggestions(pools.distinctive, item) },
+  ];
 }

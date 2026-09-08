@@ -11,6 +11,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url:`${base}/baby-names`, lastModified:updated, changeFrequency:"yearly", priority:.9 },
     { url:`${base}/pet-names`, lastModified:updated, changeFrequency:"monthly", priority:.9 },
     { url:`${base}/guides/choosing-a-baby-name`, lastModified:updated, changeFrequency:"monthly", priority:.8 },
+    { url:`${base}/methodology`, lastModified:updated, changeFrequency:"monthly", priority:.6 },
     { url:`${base}/about`, lastModified:updated, changeFrequency:"monthly", priority:.6 },
     { url:`${base}/contact`, lastModified:updated, changeFrequency:"yearly", priority:.4 },
     { url:`${base}/privacy`, lastModified:updated, changeFrequency:"yearly", priority:.3 },

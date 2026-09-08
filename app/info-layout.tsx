@@ -17,7 +17,7 @@ export function InfoLayout({ eyebrow, title, intro, children }: { eyebrow:string
 export function InfoFooter() {
   return <footer className="info-footer">
     <Link className="brand" href="/"><span className="mark" aria-hidden="true">n</span><span>namekind</span></Link>
-    <nav aria-label="Legal and information"><Link href="/baby-names">Baby names</Link><Link href="/pet-names">Pet names</Link><Link href="/guides/choosing-a-baby-name">Baby name guide</Link><Link href="/about">About</Link><Link href="/privacy">Privacy</Link><Link href="/terms">Terms</Link><Link href="/cookies">Cookies</Link><Link href="/contact">Contact</Link></nav>
+    <nav aria-label="Legal and information"><Link href="/baby-names">Baby names</Link><Link href="/pet-names">Pet names</Link><Link href="/guides/choosing-a-baby-name">Baby name guide</Link><Link href="/methodology">Our method</Link><Link href="/about">About</Link><Link href="/privacy">Privacy</Link><Link href="/terms">Terms</Link><Link href="/cookies">Cookies</Link><Link href="/contact">Contact</Link></nav>
     <span>© 2026 Harold Foster</span>
   </footer>;
 }
