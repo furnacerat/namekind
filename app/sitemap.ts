@@ -5,7 +5,7 @@ import { nameCategories } from "./name-categories-data";
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const base = "https://www.hellonamekind.com";
-  const updated = new Date("2026-09-06");
+  const updated = new Date("2026-09-08");
   const core: MetadataRoute.Sitemap = [
     { url:base, lastModified:updated, changeFrequency:"weekly", priority:1 },
     { url:`${base}/baby-names`, lastModified:updated, changeFrequency:"yearly", priority:.9 },

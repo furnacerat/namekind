@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { track } from "@vercel/analytics";
 import { names, type NameItem } from "./name-data";
 import { petNameItems } from "./pet-names-data";
 import { createCloudJourney, joinCloudJourney, loadCloudRatings, saveCloudJourney, saveCloudRating, subscribeToCloudJourney, type CloudRating } from "../lib/shared-journeys";
@@ -54,6 +55,9 @@ const cultureOrigins: Record<string,string[]> = {
   "South Asian":["sanskrit","indian","hindi"], "Spanish & Portuguese":["spanish","portuguese"], Welsh:["welsh"]
 };
 const list = (value:string) => value.split(",").map(x => x.trim().toLowerCase()).filter(Boolean).slice(0,6);
+const recordJourneyEvent = (name:string, properties:Record<string,string|number|boolean>) => {
+  try { track(name, properties); } catch { /* analytics must never interrupt the naming journey */ }
+};
 
 function rankedPool(answers: AnswerMap, details: Details, buckets: Record<string,string>, seen: string[], mode:JourneyMode = "baby") {
   const sourceNames = mode === "pet" ? petNameItems : names;
@@ -228,19 +232,38 @@ export default function Home() {
   const activeQuestions = (mode === "pet" ? petQuestions : [...(mode === "twins" ? twinQuestions : []), ...questions]).filter(item => (mode !== "twins" || item.id !== "direction") && (!item.when || item.when(answers)));
   const q = activeQuestions[question];
   const selected = answers[q?.id] || [];
+
+  useEffect(() => {
+    if (!hydrated) return;
+    recordJourneyEvent("journey_step_viewed", {
+      journey:mode,
+      phase:step,
+      question:step === "questions" ? question + 1 : 0,
+    });
+  }, [hydrated, mode, question, step]);
+
   const toggle = (option: string) => {
     const next = selected.includes(option) ? selected.filter(x => x !== option) : q.max === 1 ? [option] : selected.length < q.max ? [...selected, option] : selected;
     setAnswers({ ...answers, [q.id]: next });
   };
-  const nextQuestion = () => question < activeQuestions.length - 1 ? setQuestion(question + 1) : setStep("details");
+  const nextQuestion = () => {
+    recordJourneyEvent("questionnaire_progress", { journey:mode, question:question + 1, total:activeQuestions.length });
+    if (question < activeQuestions.length - 1) setQuestion(question + 1);
+    else {
+      recordJourneyEvent("questionnaire_completed", { journey:mode, questions:activeQuestions.length });
+      setStep("details");
+    }
+  };
   const rate = (bucket: string) => {
     const key = mode === "twins" ? [pairs[current].first.name,pairs[current].second.name].sort().join(" + ") : batch[current].name;
     setBuckets({ ...buckets, [key]: bucket });
+    recordJourneyEvent("name_result_rated", { journey:mode, rating:bucket, ai_refined:aiRefined });
     if (cloudJourney) void saveCloudRating(cloudJourney.id, key, bucket).then(() => loadCloudRatings(cloudJourney.id)).then(setCloudRatings).catch(() => setCloudStatus("error"));
     const total = mode === "twins" ? pairs.length : batch.length;
     if (current < total - 1) setCurrent(current + 1); else setShowBuckets(true);
   };
   const loadNext = async (first = false) => {
+    if (!first) recordJourneyEvent("more_names_requested", { journey:mode, rated:Object.keys(buckets).length });
     setFinding(true);
     const alreadySeen = first ? [] : seen;
     const candidates = rankedPool(answers, details, buckets, mode === "twins" ? [] : alreadySeen, mode);
@@ -263,18 +286,25 @@ export default function Home() {
       setPairs(nextPairs);
       setSeen([...alreadySeen, ...nextPairs.map(pair => [pair.first.name,pair.second.name].sort().join(" + "))]);
       setCurrent(0); setAiRefined(refined); setFinding(false); setShowBuckets(false); setStep("results");
+      recordJourneyEvent("name_results_shown", { journey:mode, ai_refined:refined, count:nextPairs.length });
+      if (refined) recordJourneyEvent("ai_refinement_used", { journey:mode });
       return;
     }
     if (!next.length) next = rankedPool(answers, details, buckets, [], mode).filter(n => !buckets[n.name]).slice(0,5);
     setBatch(next); setSeen([...alreadySeen, ...next.map(n => n.name)]); setCurrent(0); setAiRefined(refined); setFinding(false); setShowBuckets(false); setStep("results");
+    recordJourneyEvent("name_results_shown", { journey:mode, ai_refined:refined, count:next.length });
+    if (refined) recordJourneyEvent("ai_refinement_used", { journey:mode });
   };
-  const chooseMode = (nextMode:JourneyMode) => { setMode(nextMode); setAnswers({}); setBuckets({}); setSeen([]); setQuestion(0); setCurrent(0); setStep("together"); };
+  const chooseMode = (nextMode:JourneyMode) => { recordJourneyEvent("journey_path_selected", { journey:nextMode }); setMode(nextMode); setAnswers({}); setBuckets({}); setSeen([]); setQuestion(0); setCurrent(0); setStep("together"); };
+  const beginSolo = () => { recordJourneyEvent("questionnaire_started", { journey:mode, path:"solo" }); setStep("questions"); };
   const sharedSnapshot = () => ({ version:2, mode, answers, details, surname, nickname, seen });
   const beginTogether = async () => {
     setCloudError(""); setCloudStatus("saving");
     try {
       const journey = await createCloudJourney(mode, sharedSnapshot());
       setCloudJourney({id:journey.id,code:journey.code,userId:journey.userId}); setCloudStatus("saved"); setShareView("existing"); setShowShare(true); setQuestion(0); setStep("questions");
+      recordJourneyEvent("shared_journey_created", { journey:mode });
+      recordJourneyEvent("questionnaire_started", { journey:mode, path:"shared_created" });
     } catch (error) { const code = typeof error === "object" && error && "code" in error ? String(error.code) : ""; setCloudStatus("error"); setCloudError(code === "42883" ? "Shared journeys need one small database update before codes can be created. Your local journey is still safe." : "We couldn’t create the shared journey right now. Your local journey is still safe; please try again shortly."); setShowShare(true); }
   };
   const joinTogether = async () => {
@@ -285,6 +315,8 @@ export default function Home() {
       const state = journey.state as Partial<JourneySave>;
       setMode(state.mode || "baby"); setAnswers(state.answers || {}); setDetails({...emptyDetails,...(state.details || {})}); setSurname(state.surname || ""); setNickname(state.nickname || "Nice to have"); setSeen(state.seen || []);
       setCloudJourney({id:journey.id,code:journey.code,userId:journey.userId}); setCloudStatus("saved"); setShareView("existing"); setShowShare(false); setQuestion(0); setStep("questions");
+      recordJourneyEvent("shared_journey_joined", { journey:state.mode || "baby" });
+      recordJourneyEvent("questionnaire_started", { journey:state.mode || "baby", path:"shared_joined" });
     } catch { setCloudStatus("error"); setCloudError("We couldn’t find that journey. Check the six-character code and try again."); }
   };
   const restart = () => { setMode("baby"); setAnswers({}); setDetails(emptyDetails); setSurname(""); setNickname("Nice to have"); setBuckets({}); setSeen([]); setPairs([]); setCloudJourney(null); setCloudRatings([]); setCloudStatus("local"); setQuestion(0); setCurrent(0); setStep("welcome"); setShowBuckets(false); localStorage.removeItem("namekind-journey"); localStorage.removeItem("namekind-cloud-journey"); };
@@ -323,7 +355,7 @@ export default function Home() {
       <p className="eyebrow">Your naming journey</p><h2>Are you naming together<br />or exploring on your own?</h2>
       <p className="sub">You can always invite someone later. Your {mode === "twins" ? "twin-name" : mode === "sibling" ? "sibling-name" : mode === "pet" ? "pet-name" : "baby-name"} path is ready.</p>
       <div className="journey-grid">
-        <button className="journey-card" onClick={() => setStep("questions")}><span className="card-symbol">♡</span><strong>Exploring on my own</strong><small>Start discovering names right away</small><b>Continue →</b></button>
+        <button className="journey-card" onClick={beginSolo}><span className="card-symbol">♡</span><strong>Exploring on my own</strong><small>Start discovering names right away</small><b>Continue →</b></button>
         <button className="journey-card" onClick={() => { setCloudError(""); setJoinCode(""); setShareView("choose"); setShowShare(true); }}><span className="card-symbol">♧</span><strong>Naming together</strong><small>Create a private journey for two</small><b>Choose how →</b></button>
       </div>
       <button className="code-link" onClick={() => {setCloudError("");setJoinCode("");setShareView("choose");setShowShare(true)}}>Already have a journey code? <u>Join here</u></button>
@@ -348,8 +380,8 @@ export default function Home() {
         <label><span>Letters you’d rather avoid</span><small>We’ll gently filter names containing them</small><input value={details.avoidedLetters} onChange={e => setDetails({...details,avoidedLetters:e.target.value})} placeholder="X, Z" /></label>
         {mode !== "twins" && mode !== "pet" && <label className="wide"><span>{mode === "sibling" ? "Your child’s name" : "Sibling names"}</span><small>{mode === "sibling" ? "We’ll look for a complementary style, rhythm, and personality" : "Helps you consider how the names feel together"}</small><input value={details.siblingNames} onChange={e => setDetails({...details,siblingNames:e.target.value})} placeholder={mode === "sibling" ? "Enter the sibling’s name" : "Optional"} /></label>}
       </div>
-      <button className="primary" onClick={() => setStep("profile")}>Review my profile <span>→</span></button>
-      <button className="quiet" onClick={() => setStep("profile")}>Skip these details</button>
+      <button className="primary" onClick={() => { recordJourneyEvent("personal_touches_finished", { journey:mode, action:"reviewed" }); setStep("profile"); }}>Review my profile <span>→</span></button>
+      <button className="quiet" onClick={() => { recordJourneyEvent("personal_touches_finished", { journey:mode, action:"skipped" }); setStep("profile"); }}>Skip these details</button>
     </section>}
 
     {step === "profile" && <section className="profile page-enter">
