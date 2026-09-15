@@ -5,6 +5,7 @@ import Link from "next/link";
 import { track } from "@vercel/analytics";
 import { names, type NameItem } from "./name-data";
 import { petNameItems } from "./pet-names-data";
+import { HomeResourceHub } from "./home-resource-hub";
 import { createCloudJourney, joinCloudJourney, loadCloudRatings, saveCloudJourney, saveCloudRating, subscribeToCloudJourney, type CloudRating } from "../lib/shared-journeys";
 
 type Step = "welcome" | "purpose" | "together" | "questions" | "details" | "profile" | "results";
@@ -327,16 +328,16 @@ export default function Home() {
       <nav aria-label="Primary navigation"><button onClick={() => setShowBuckets(true)}>Your shortlist <span className="count">{Object.values(buckets).filter(v => v !== "pass").length}</span></button><button className="save" onClick={() => { setShareView(cloudJourney ? "existing" : "choose"); setShowShare(true); }}>{cloudJourney ? cloudStatus === "saving" ? "Saving…" : "Journey saved" : "Save your journey"}</button></nav>
     </header>
 
-    {step === "welcome" && <section className="welcome page-enter">
+    {step === "welcome" && <><section className="welcome page-enter">
       <div className="halo halo-one" /><div className="halo halo-two" />
       <p className="eyebrow">A more thoughtful way to choose</p>
       <h1>Find a name that<br /><em>feels like yours.</em></h1>
-      <p className="lede">A few gentle questions. A world of meaningful names.<br className="desktop" /> Recommendations shaped around your story.</p>
-      <div className="welcome-paths"><button className="primary" onClick={() => chooseMode("baby")}><small>For your family</small>Find a baby name <span>→</span></button><button className="welcome-pet" onClick={() => chooseMode("pet")}><small>For your companion</small>Find a pet name <span>→</span></button></div>
-      <div className="browse-paths"><Link href="/baby-names">Browse popular baby names</Link><span>·</span><Link href="/pet-names">Browse popular pet names</Link><span>·</span><button onClick={() => setStep("purpose")}>See every naming path</button></div>
+      <p className="lede">Discover baby names through meaning, style, origin, popularity,<br className="desktop" /> family connections, and the preferences that matter to you.</p>
+      <div className="welcome-paths"><button className="primary" onClick={() => chooseMode("baby")}><small>Personalized for you</small>Find my names <span>→</span></button><Link className="welcome-browse" href="/baby-names"><small>Meaning, history &amp; more</small>Browse baby names <span>→</span></Link></div>
+      <div className="browse-paths"><button onClick={() => chooseMode("pet")}>Find a pet name</button><span>·</span><Link href="/pet-names">Browse popular pet names</Link><span>·</span><button onClick={() => setStep("purpose")}>See every naming path</button></div>
       <div className="trust"><span>✦ No account needed</span><span>✦ Private by design</span><span>✦ Thoughtfully curated</span></div>
       <div className="name-cloud" aria-hidden="true"><span>Elodie</span><span>Silas</span><span>Maren</span><span>August</span><span>Noa</span></div>
-    </section>}
+    </section><HomeResourceHub onStartFinder={() => chooseMode("baby")} /></>}
 
     {step === "purpose" && <section className="center-card purpose page-enter">
       <button className="back" onClick={() => setStep("welcome")}>← Back</button>
@@ -424,6 +425,6 @@ export default function Home() {
       {cloudError && <p className="cloud-error" role="alert">{cloudError}</p>}
     </section></div>}
 
-    <footer className="home-footer"><div className="brand"><Mark /><span>namekind</span></div><p>Names chosen with meaning, not just momentum.</p><nav aria-label="Legal and information"><Link href="/baby-names">Baby names</Link><Link href="/pet-names">Pet names</Link><Link href="/guides/choosing-a-baby-name">Guide</Link><Link href="/methodology">Our method</Link><Link href="/about">About</Link><Link href="/privacy">Privacy</Link><Link href="/terms">Terms</Link><Link href="/cookies">Cookies</Link><Link href="/contact">Contact</Link></nav></footer>
+    {step === "welcome" && <footer className="home-footer"><div className="brand"><Mark /><span>namekind</span></div><p>Names chosen with meaning, not just momentum.</p><nav aria-label="Legal and information"><Link href="/baby-names">Baby names</Link><Link href="/pet-names">Pet names</Link><Link href="/guides/choosing-a-baby-name">Guide</Link><Link href="/methodology">Methodology</Link><Link href="/about">About</Link><Link href="/privacy">Privacy Policy</Link><Link href="/terms">Terms</Link><Link href="/cookies">Cookie information</Link><Link href="/contact">Contact</Link></nav></footer>}
   </main>;
 }

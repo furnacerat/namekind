@@ -20,11 +20,11 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
-  title: { default:"Namekind — Personalized Baby & Pet Name Ideas", template:"%s | Namekind" },
-  description: "Discover meaningful baby and pet names through thoughtful questionnaires shaped around your style, story, sound, and preferences.",
+  title: { default:"Baby Names, Meanings & Personalized Name Ideas | Namekind", template:"%s | Namekind" },
+  description: "Explore baby names, meanings, origins, popularity trends, sibling pairings, and personalized ideas shaped around your family's style, values, and story.",
   alternates: { canonical:"/" },
-  openGraph: { type:"website", url:siteUrl, siteName:"Namekind", title:"Namekind — Personalized Baby & Pet Name Ideas", description:"A thoughtful, personalized way to discover meaningful baby and pet names." },
-  twitter: { card:"summary", title:"Namekind — Personalized Baby & Pet Name Ideas", description:"A thoughtful, personalized way to discover meaningful baby and pet names." },
+  openGraph: { type:"website", url:siteUrl, siteName:"Namekind", title:"Baby Names, Meanings & Personalized Name Ideas | Namekind", description:"Explore name meanings, origins, popularity, sibling pairings, and personalized ideas shaped around your family." },
+  twitter: { card:"summary", title:"Baby Names, Meanings & Personalized Name Ideas | Namekind", description:"Explore name meanings, origins, popularity, sibling pairings, and personalized ideas shaped around your family." },
   robots: { index:true, follow:true, googleBot:{ index:true, follow:true, "max-image-preview":"large", "max-snippet":-1, "max-video-preview":-1 } },
   icons: {
     icon: "/favicon.svg",
@@ -40,7 +40,7 @@ export default function RootLayout({
   const adsenseClient = process.env.NEXT_PUBLIC_GOOGLE_ADSENSE_CLIENT || defaultAdsenseClient;
   const structuredData = [
     { "@context":"https://schema.org", "@type":"Organization", name:"Namekind", url:siteUrl, email:"hello@hellonamekind.com", founder:{"@type":"Person",name:"Harold Foster"} },
-    { "@context":"https://schema.org", "@type":"WebSite", name:"Namekind", url:siteUrl, description:"Personalized baby and pet name discovery shaped by meaning, sound, style, and story." },
+    { "@context":"https://schema.org", "@type":"WebSite", name:"Namekind", url:siteUrl, description:"Baby and pet name research with meanings, origins, popularity context, pairing ideas, and personalized discovery." },
   ];
   return (
     <html lang="en">
