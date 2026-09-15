@@ -425,6 +425,6 @@ export default function Home() {
       {cloudError && <p className="cloud-error" role="alert">{cloudError}</p>}
     </section></div>}
 
-    {step === "welcome" && <footer className="home-footer"><div className="brand"><Mark /><span>namekind</span></div><p>Names chosen with meaning, not just momentum.</p><nav aria-label="Legal and information"><Link href="/baby-names">Baby names</Link><Link href="/pet-names">Pet names</Link><Link href="/guides/choosing-a-baby-name">Guide</Link><Link href="/methodology">Methodology</Link><Link href="/about">About</Link><Link href="/privacy">Privacy Policy</Link><Link href="/terms">Terms</Link><Link href="/cookies">Cookie information</Link><Link href="/contact">Contact</Link></nav></footer>}
+    {step === "welcome" && <footer className="home-footer"><div className="brand"><Mark /><span>namekind</span></div><p>Names chosen with meaning, not just momentum.</p><nav aria-label="Legal and information"><Link href="/baby-names">Baby names</Link><Link href="/pet-names">Pet names</Link><Link href="/guides">Guides</Link><Link href="/methodology">Methodology</Link><Link href="/about">About</Link><Link href="/privacy">Privacy Policy</Link><Link href="/terms">Terms</Link><Link href="/cookies">Cookie information</Link><Link href="/contact">Contact</Link></nav></footer>}
   </main>;
 }

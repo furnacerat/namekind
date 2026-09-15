@@ -17,8 +17,8 @@ const explorePaths = [
 
 const guideCards = [
   { title:"How to choose a baby name without getting overwhelmed", description:"A practical way to narrow names by feeling, sound, family connection, culture, popularity, and everyday use.", href:"/guides/choosing-a-baby-name" },
-  { title:"Twin names with the same first letter", description:"Build a connected pair while protecting each child’s distinct sound, rhythm, and identity.", href:"/baby-names/categories/twin-names-same-first-letter" },
-  { title:"Celtic, Irish, and Welsh baby names", description:"Explore lyrical names while keeping their individual languages, histories, and pronunciations in view.", href:"/baby-names/categories/celtic-irish-welsh-baby-names" },
+  { title:"How to choose a baby name when you disagree", description:"Turn two different tastes into a fair shared process without veto wars, pressure, or resentment.", href:"/guides/choosing-a-baby-name-together" },
+  { title:"How to choose a middle name that flows", description:"Use rhythm, sound, initials, family meaning, and the complete surname to build the whole name.", href:"/guides/choosing-a-middle-name-that-flows" },
 ];
 
 export function HomeResourceHub({ onStartFinder }: { onStartFinder: () => void }) {
@@ -49,7 +49,7 @@ export function HomeResourceHub({ onStartFinder }: { onStartFinder: () => void }
     </section>
 
     <section className="home-editorial guides-section" aria-labelledby="guides-title">
-      <div className="home-section-head"><div><p className="eyebrow">Practical, human guidance</p><h2 id="guides-title">Help choosing the right name</h2></div></div>
+      <div className="home-section-head"><div><p className="eyebrow">Practical, human guidance</p><h2 id="guides-title">Help choosing the right name</h2></div><Link href="/guides">Explore all guides <span>→</span></Link></div>
       <div className="home-guide-grid">{guideCards.map((guide, index) => <Link key={guide.href} href={guide.href}><span>Guide {String(index + 1).padStart(2, "0")}</span><h3>{guide.title}</h3><p>{guide.description}</p><b>Read the guide →</b></Link>)}</div>
     </section>
 
@@ -60,7 +60,7 @@ export function HomeResourceHub({ onStartFinder }: { onStartFinder: () => void }
 
     <section className="home-editorial starting-points" aria-labelledby="starting-points-title">
       <p className="eyebrow">Continue exploring</p><h2 id="starting-points-title">Popular starting points</h2>
-      <nav aria-label="Popular baby-name starting points"><Link href="/baby-names#boy-names"><span>01</span>Top 100 boy names</Link><Link href="/baby-names#girl-names"><span>02</span>Top 100 girl names</Link><Link href="/baby-names/categories/gender-neutral-baby-names"><span>03</span>Gender-neutral names</Link><Link href="/baby-names/categories/unique-baby-names"><span>04</span>Unique baby names</Link><Link href="/baby-names/categories/nature-inspired-baby-names"><span>05</span>Nature-inspired names</Link><Link href="/guides/choosing-a-baby-name"><span>06</span>Baby-naming guide</Link></nav>
+      <nav aria-label="Popular baby-name starting points"><Link href="/baby-names#boy-names"><span>01</span>Top 100 boy names</Link><Link href="/baby-names#girl-names"><span>02</span>Top 100 girl names</Link><Link href="/baby-names/categories/gender-neutral-baby-names"><span>03</span>Gender-neutral names</Link><Link href="/baby-names/categories/unique-baby-names"><span>04</span>Unique baby names</Link><Link href="/baby-names/categories/nature-inspired-baby-names"><span>05</span>Nature-inspired names</Link><Link href="/guides"><span>06</span>Baby-naming guides</Link></nav>
     </section>
   </div>;
 }
