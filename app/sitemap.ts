@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
 import { nameCategories } from "./name-categories-data";
 import { namingGuides } from "./guides/guide-data";
+import { researchedBabyNameSlugs } from "./baby-names/researched-name-profiles";
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const base = "https://www.hellonamekind.com";
@@ -18,7 +19,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url:`${base}/terms`, lastModified:updated, changeFrequency:"yearly", priority:.3 },
     { url:`${base}/cookies`, lastModified:updated, changeFrequency:"yearly", priority:.3 },
   ];
-  // Individual profiles remain available to directory visitors, but are
-  // excluded while their name-specific sourcing and analysis are rebuilt.
-  return [...core, ...namingGuides.map(({slug})=>({url:`${base}/guides/${slug}`,lastModified:updated,changeFrequency:"monthly" as const,priority:.8})), ...nameCategories.map(item=>({url:`${base}/${item.audience === "baby" ? "baby-names" : "pet-names"}/categories/${item.slug}`,lastModified:updated,changeFrequency:"monthly" as const,priority:.8}))];
+  // Only profiles that completed the source-and-original-analysis review
+  // return to search. The remaining directory profiles stay noindex.
+  return [...core, ...namingGuides.map(({slug})=>({url:`${base}/guides/${slug}`,lastModified:updated,changeFrequency:"monthly" as const,priority:.8})), ...nameCategories.map(item=>({url:`${base}/${item.audience === "baby" ? "baby-names" : "pet-names"}/categories/${item.slug}`,lastModified:updated,changeFrequency:"monthly" as const,priority:.8})), ...researchedBabyNameSlugs.map((slug) => ({url:`${base}/baby-names/${slug}`,lastModified:updated,changeFrequency:"monthly" as const,priority:.82}))];
 }
