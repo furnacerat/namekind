@@ -37,6 +37,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     alternates: { canonical: `/baby-names/${item.slug}` },
     openGraph: { title: `${item.name} Name Meaning, Origin & Popularity`, description: `${item.name} means “${item.meaning}.” See its 10-year U.S. popularity trend, sibling names, and pairing ideas.`, images: [] },
     twitter: { title: `${item.name} Name Meaning, Origin & Popularity`, description: `${item.name} means “${item.meaning}.” Explore its rank, origin, and pairing ideas.`, images: [] },
+    robots: { index:false, follow:true },
   };
 }
 
@@ -70,7 +71,7 @@ export default async function NameProfilePage({ params }: PageProps) {
   ];
   const url = `https://www.hellonamekind.com/baby-names/${item.slug}`;
   const structuredData = [
-    { "@context":"https://schema.org", "@type":"Article", headline:`${item.name} name meaning, origin, and popularity`, description:`${item.name} means “${item.meaning}.” Explore its origin, 10-year U.S. popularity, and pairing ideas.`, articleSection:"Baby names", author:{"@type":"Organization",name:"Namekind",url:"https://www.hellonamekind.com/about"}, publisher:{"@type":"Organization",name:"Namekind",url:"https://www.hellonamekind.com"}, datePublished:"2026-08-26", dateModified:"2026-09-15", mainEntityOfPage:url, isPartOf:{"@type":"CollectionPage",name:"Baby names",url:"https://www.hellonamekind.com/baby-names"} },
+    { "@context":"https://schema.org", "@type":"Article", headline:`${item.name} name meaning, origin, and popularity`, description:`${item.name} means “${item.meaning}.” Explore its origin, 10-year U.S. popularity, and pairing ideas.`, articleSection:"Baby names", author:{"@type":"Person",name:"Harold Foster",url:"https://www.hellonamekind.com/authors/harold-foster"}, publisher:{"@type":"Organization",name:"Namekind",url:"https://www.hellonamekind.com"}, datePublished:"2026-08-26", dateModified:"2026-09-26", mainEntityOfPage:url, isPartOf:{"@type":"CollectionPage",name:"Baby names",url:"https://www.hellonamekind.com/baby-names"} },
     { "@context":"https://schema.org", "@type":"BreadcrumbList", itemListElement:[
       { "@type":"ListItem", position:1, name:"Home", item:"https://www.hellonamekind.com" },
       { "@type":"ListItem", position:2, name:"Baby names", item:"https://www.hellonamekind.com/baby-names" },
@@ -82,7 +83,7 @@ export default async function NameProfilePage({ params }: PageProps) {
   return <InfoLayout eyebrow={`${item.name} name meaning • 2025 rank #${item.rank}`} title={item.name} intro={`${item.name} means “${item.meaning.toLowerCase()}.” It has ${item.origin.toLowerCase()} roots and ranked #${item.rank} among U.S. ${label} in 2025.`}>
     <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }} />
     <nav className="guide-breadcrumbs" aria-label="Breadcrumb"><Link href="/">Home</Link><span>›</span><Link href="/baby-names">Baby names</Link><span>›</span><span aria-current="page">{item.name}</span></nav>
-    <div className="profile-byline"><span>Complete name profile</span><span>Reviewed by Namekind editors</span><time dateTime="2026-09-15">Updated September 15, 2026</time></div>
+    <div className="profile-byline"><span>Name reference</span><span>Maintained by <Link href="/authors/harold-foster">Harold Foster</Link></span><time dateTime="2026-09-26">Updated September 26, 2026</time></div>
     <div className="name-facts"><div><span>Meaning</span><strong>{item.meaning}</strong></div><div><span>Origin</span><strong>{item.origin}</strong></div><div><span>2025 U.S. rank</span><strong>#{item.rank} for {item.sex === "boy" ? "boys" : "girls"}</strong></div><div><span>10-year direction</span><strong>{editorial.trendInfo.label}</strong></div></div>
     <nav className="profile-toc" aria-label={`Sections in the ${item.name} name profile`}><span>On this page</span><a href="#overview">Overview</a><a href="#meaning">Meaning</a><a href="#popularity">Popularity</a><a href="#siblings">Sibling names</a><a href="#middle-names">Middle names</a><a href="#decision">Decision guide</a></nav>
     <NameProfileTools name={item.name} slug={item.slug} />
@@ -98,7 +99,7 @@ export default async function NameProfilePage({ params }: PageProps) {
     <section id="decision" className="profile-decision"><p className="eyebrow">A practical final check</p><h2>Before deciding on {item.name}</h2><p>A ranking and a meaning can start the conversation, but the right name also has to work in your family’s everyday life.</p><ol>{editorial.checks.map((check) => <li key={check.title}><strong>{check.title}</strong><span>{check.text}</span></li>)}</ol></section>
     <section className="profile-guides"><p className="eyebrow">Thoughtful next steps</p><h2>Guides to use with this profile</h2><div className="guide-link-grid">{decisionGuides.map((guide) => <Link key={guide.slug} href={`/guides/${guide.slug}`}><span>{guide.category}</span><strong>{guide.title}</strong><small>{guide.description}</small><b>Read the guide →</b></Link>)}</div></section>
     <section className="name-faq"><h2>Frequently asked questions about {item.name}</h2>{faq.map((entry) => <details key={entry.question}><summary>{entry.question}</summary><p>{entry.answer}</p></details>)}</section>
-    <aside className="profile-method"><strong>How Namekind builds every profile</strong><p>All 200 baby-name pages follow this same editorial template and data standard. We separate verified ranking facts from interpretive pairing advice, cite the original source, and flag meanings that vary by tradition.</p><Link href="/methodology">Read our naming data and editorial method →</Link></aside>
+    <aside className="profile-method"><strong>How this reference was prepared</strong><p>The popularity chart comes from annual Social Security rankings. Meaning and origin are concise reference summaries; pairing and rhythm suggestions are editorial guidance. Namekind is adding individual etymology sources and original analysis before returning these profiles to the search sitemap.</p><Link href="/methodology">Read our data, automation, and editorial method →</Link></aside>
     <div className="profile-actions"><Link href="/baby-names">Browse all 200 names</Link><Link className="primary" href="/">Find names for your family <span>→</span></Link></div>
   </InfoLayout>;
 }

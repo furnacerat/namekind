@@ -12,9 +12,9 @@ export function GuideArticle({ guide }: { guide: NamingGuide }) {
       headline: guide.title,
       description: guide.description,
       datePublished: "2026-09-15",
-      dateModified: "2026-09-15",
+      dateModified: "2026-09-26",
       mainEntityOfPage: `${siteUrl}/guides/${guide.slug}`,
-      author: { "@type": "Organization", name: "Namekind", url: siteUrl },
+      author: { "@type": "Person", name: "Harold Foster", url: `${siteUrl}/authors/harold-foster` },
       publisher: { "@type": "Organization", name: "Namekind", url: siteUrl },
     },
     {
@@ -40,7 +40,7 @@ export function GuideArticle({ guide }: { guide: NamingGuide }) {
   return <InfoLayout eyebrow={guide.eyebrow} title={guide.title} intro={guide.intro}>
     <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }} />
     <nav className="guide-breadcrumbs" aria-label="Breadcrumb"><Link href="/">Home</Link><span>›</span><Link href="/guides">Guides</Link><span>›</span><span aria-current="page">{guide.category}</span></nav>
-    <div className="guide-byline"><span>By Namekind</span><span>Updated September 15, 2026</span><span>{guide.readMinutes} minute read</span></div>
+    <div className="guide-byline"><span>By <Link href="/authors/harold-foster">Harold Foster</Link></span><span>Updated September 26, 2026</span><span>{guide.readMinutes} minute read</span></div>
 
     <aside className="guide-takeaways" aria-labelledby="guide-takeaways-title">
       <div><p className="eyebrow">The short version</p><h2 id="guide-takeaways-title">What matters most</h2></div>
@@ -79,6 +79,6 @@ export function GuideArticle({ guide }: { guide: NamingGuide }) {
     </section>
 
     <div className="info-cta guide-finder-cta"><p>Ready to turn your preferences into a smaller first list?</p><Link className="primary" href="/">Find your names <span>→</span></Link></div>
-    <p className="guide-editorial-note">Name meanings and origins can vary across languages, spellings, and sources. Namekind presents context for discovery and encourages families to continue researching names connected to living cultures and traditions.</p>
+    <p className="guide-editorial-note">Written and maintained by Harold Foster. Name meanings and origins can vary across languages, spellings, and sources. Namekind presents context for discovery and encourages families to continue researching names connected to living cultures and traditions.</p>
   </InfoLayout>;
 }
